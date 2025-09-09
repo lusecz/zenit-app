@@ -2,21 +2,23 @@
   "expo": {
     "name": "testeAppTopicos",
     "slug": "testeAppTopicos",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "testeapptopicos",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.testeapptopicos.dev"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.testeapptopicos.dev"
     },
     "web": {
       "bundler": "metro",
@@ -37,6 +39,10 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "commitExample": "Alteração mínima para teste no GitHub",
+      "environment": "development"
     }
   }
 }
