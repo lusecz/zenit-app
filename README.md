@@ -22,8 +22,8 @@ Destina-se a alunos, profissionais da área e entusiastas de academia que deseja
 
 As principais tecnologias utilizadas são:
 
-- **[React Native](https://reactnative.dev/)** ou **Flutter** (dependendo do stack escolhido)
-- **Node.js / Django / Ruby on Rails** (para API e backend, se aplicável)
+- **[React Native](https://reactnative.dev/)** 
+- **Node.js**
 - **Banco de dados** - A definir
 
 
