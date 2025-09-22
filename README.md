@@ -26,4 +26,25 @@ As principais tecnologias utilizadas são:
 - **Node.js**
 - **Banco de dados** - A definir
 
+---
 
+## 🎯 Objetivo do projeto
+
+Fornecer uma solução prática e acessível para o controle diário de treinos, permitindo que usuários organizem e acompanhem seus exercícios de forma simples e eficiente.
+
+---
+
+## 👥 Público-alvo
+
+- Alunos de academia
+- Profissionais da área de educação física
+- Entusiastas de musculação que buscam controle diário de treinos
+
+---
+
+## 📝 Integrantes do grupo
+
+- **Líder:** Philip Escudero
+- Alex Martins
+- Bruno Bianchi
+- Lucas Alves
