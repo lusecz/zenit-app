@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React from 'react';
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -41,7 +42,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.title}>Treino de Hoje</Text>
           <Text style={styles.subtitle}>Push Day - Peito & Tríceps</Text>
-          <TouchableOpacity style={styles.button}>
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)/workouts')}>
             <Text style={styles.buttonText}>Iniciar Treino</Text>
           </TouchableOpacity>
         </View>
@@ -72,7 +73,7 @@ export default function HomeScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Projeto acadêmico por Philip Escudero e equipe.
+            Projeto acadêmico em desenvolvimento.
           </Text>
         </View>
       </ScrollView>
