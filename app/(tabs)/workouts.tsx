@@ -1,8 +1,9 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { WorkoutContext } from '@/context/WorkoutContext';
+import { RoutineContext } from '@/context/RoutineContext';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useContext, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useContext, useMemo, useState } from 'react';
 import { Button, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 function HeaderBar() {
@@ -14,17 +15,41 @@ function HeaderBar() {
 }
 
 export default function WorkoutsScreen() {
-  const { exercises, addExercise, removeExercise, addSet, removeSet, updateSet, toggleSetCompletion } = useContext(WorkoutContext);
+  const { routineId } = useLocalSearchParams<{ routineId: string }>();
+  const { 
+    getRoutine, 
+    addExercise, 
+    removeExercise, 
+    addSet, 
+    removeSet, 
+    updateSet, 
+    toggleSetCompletion 
+  } = useContext(RoutineContext);
+  
+  const routine = useMemo(() => getRoutine(routineId!), [routineId, getRoutine]);
+  const exercises = routine?.exercises || [];
+
   const [newExerciseName, setNewExerciseName] = useState('');
   const [isModalVisible, setModalVisible] = useState(false);
 
   const handleAddExercise = () => {
-    if (newExerciseName.trim()) {
-      addExercise(newExerciseName.trim());
+    if (newExerciseName.trim() && routineId) {
+      addExercise(routineId, newExerciseName.trim());
       setNewExerciseName('');
       setModalVisible(false);
     }
   };
+
+  if (!routine) {
+    return (
+      <ThemedView style={styles.container}>
+        <HeaderBar />
+        <View style={styles.scrollContainer}>
+          <ThemedText>Rotina não encontrada.</ThemedText>
+        </View>
+      </ThemedView>
+    )
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -67,7 +92,7 @@ export default function WorkoutsScreen() {
           <ThemedView key={exercise.id} style={styles.exerciseContainer}>
             <View style={styles.exerciseHeader}>
               <ThemedText style={styles.exerciseName}>{exercise.name}</ThemedText>
-              <TouchableOpacity onPress={() => removeExercise(exercise.id)}>
+              <TouchableOpacity onPress={() => removeExercise(routineId!, exercise.id)}>
                 <Ionicons name="trash-outline" size={22} color="#F43F5E" />
               </TouchableOpacity>
             </View>
@@ -84,7 +109,7 @@ export default function WorkoutsScreen() {
 
             {exercise.sets.map((set, index) => (
               <View key={set.id} style={styles.setContainer}>
-                <TouchableOpacity onPress={() => toggleSetCompletion(exercise.id, set.id)}>
+                <TouchableOpacity onPress={() => toggleSetCompletion(routineId!, exercise.id, set.id)}>
                     <Ionicons name={set.isCompleted ? 'checkbox' : 'square-outline'} size={24} color="#22C55E" />
                 </TouchableOpacity>
                 <Text style={styles.setText}>Série {index + 1}</Text>
@@ -94,7 +119,7 @@ export default function WorkoutsScreen() {
                   placeholder="Kg"
                   placeholderTextColor="#94A3B8"
                   defaultValue={set.weight.toString()}
-                  onEndEditing={(e) => updateSet(exercise.id, set.id, set.reps, parseInt(e.nativeEvent.text) || 0)}
+                  onEndEditing={(e) => updateSet(routineId!, exercise.id, set.id, set.reps, parseInt(e.nativeEvent.text) || 0)}
                 />
                 <TextInput
                   style={[styles.setInput, set.isCompleted && styles.setTextCompleted]}
@@ -102,15 +127,15 @@ export default function WorkoutsScreen() {
                   placeholder="Reps"
                   placeholderTextColor="#94A3B8"
                   defaultValue={set.reps.toString()}
-                  onEndEditing={(e) => updateSet(exercise.id, set.id, parseInt(e.nativeEvent.text) || 0, set.weight)}
+                  onEndEditing={(e) => updateSet(routineId!, exercise.id, set.id, parseInt(e.nativeEvent.text) || 0, set.weight)}
                 />
-                <TouchableOpacity onPress={() => removeSet(exercise.id, set.id)}>
+                <TouchableOpacity onPress={() => removeSet(routineId!, exercise.id, set.id)}>
                     <Ionicons name="remove-circle-outline" size={22} color="#94A3B8" />
                 </TouchableOpacity>
               </View>
             ))}
 
-            <TouchableOpacity style={styles.addSetButton} onPress={() => addSet(exercise.id)}>
+            <TouchableOpacity style={styles.addSetButton} onPress={() => addSet(routineId!, exercise.id)}>
               <Ionicons name="add" size={20} color="#22C55E" />
               <Text style={styles.addSetButtonText}>Adicionar Série</Text>
             </TouchableOpacity>

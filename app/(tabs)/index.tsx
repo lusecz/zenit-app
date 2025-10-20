@@ -42,7 +42,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.title}>Treino de Hoje</Text>
           <Text style={styles.subtitle}>Push Day - Peito & Tríceps</Text>
-          <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)/workouts')}>
+          <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)/routines')}>
             <Text style={styles.buttonText}>Iniciar Treino</Text>
           </TouchableOpacity>
         </View>
