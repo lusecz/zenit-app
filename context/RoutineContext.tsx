@@ -13,6 +13,7 @@ interface RoutineContextData {
   getRoutine: (routineId: string) => Routine | undefined;
   addExercise: (routineId: string, name: string) => void;
   updateExercise: (routineId: string, exerciseId: string, newName: string) => void;
+  updateExerciseRestTime: (routineId: string, exerciseId: string, restTime: number) => void;
   removeExercise: (routineId: string, exerciseId: string) => void;
   addSet: (routineId: string, exerciseId: string) => void;
   updateSet: (routineId: string, exerciseId: string, setId: string, reps: number, weight: number) => void;
@@ -88,6 +89,7 @@ export function RoutineProvider({ children }: RoutineProviderProps) {
       id: uuidv4(),
       name,
       sets: [],
+      restTime: 60, // padrão de 60 segundos
     };
     setRoutines(prev =>
       prev.map(r =>
@@ -103,6 +105,16 @@ export function RoutineProvider({ children }: RoutineProviderProps) {
       prev.map(r =>
         r.id === routineId
           ? { ...r, exercises: r.exercises.map(ex => ex.id === exerciseId ? { ...ex, name: newName } : ex) }
+          : r
+      )
+    );
+  };
+
+  const updateExerciseRestTime = (routineId: string, exerciseId: string, restTime: number) => {
+    setRoutines(prev =>
+      prev.map(r =>
+        r.id === routineId
+          ? { ...r, exercises: r.exercises.map(ex => ex.id === exerciseId ? { ...ex, restTime } : ex) }
           : r
       )
     );
@@ -173,6 +185,7 @@ export function RoutineProvider({ children }: RoutineProviderProps) {
       getRoutine,
       addExercise,
       updateExercise,
+      updateExerciseRestTime,
       removeExercise,
       addSet,
       updateSet,
