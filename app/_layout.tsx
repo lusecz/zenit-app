@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router'; // Stack é o seu Navigator
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
@@ -13,18 +13,18 @@ export default function RootLayout() {
   });
 
   if (!loaded) {
-    // Async font loading only occurs in development.
     return null;
   }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
-        {/* 1. NOVA TELA DE ENTRADA: DEVE SER A PRIMEIRA NA PILHA */}
+        
+        {/* 1. ROTA PRINCIPAL: AGORA APONTA PARA app/index.tsx */}
         <Stack.Screen 
-          name="welcome" // Corresponde ao arquivo 'app/welcome.tsx'
+          name="index" // <--- CORREÇÃO: Deve ser 'index' para a rota raiz
           options={{ 
-            headerShown: false, // Oculta a barra de navegação padrão
+            headerShown: false, // Oculta o cabeçalho "index"
           }} 
         />
         
