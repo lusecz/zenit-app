@@ -10,28 +10,28 @@ import {
   Image,
   Platform,
   SafeAreaView,
+  ViewStyle,
+  TextStyle,
+  ImageStyle
 } from 'react-native';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router'; // ✅ Correto: useRouter em vez de useNavigation
 import { Feather } from '@expo/vector-icons';
 
 const FundoAcademia = require('../assets/images/gym_background.jpg');
 const Logo = require('../assets/images/zenit_logo.png');
 
-// --- CONSTANTES DE ESCALA RESPONSIVA ---
 const { width, height } = Dimensions.get('window');
-const DESIGN_WIDTH = 375; // base iPhone X
+const DESIGN_WIDTH = 375;
 const DESIGN_HEIGHT = 812;
 const scaleW = width / DESIGN_WIDTH;
 const scaleH = height / DESIGN_HEIGHT;
 
-// Escala inteligente (mantém proporção visual natural)
 const scaleSize = (size: number) => Math.round(size * Math.min(scaleW, scaleH));
 const scaleFont = (size: number) => size * Math.min(scaleW, 1.15);
 
 export default function WelcomeScreen() {
-  const navigation = useNavigation();
+  const router = useRouter(); // ✅ Hook correto para navegação com Expo Router
 
-  // Desabilita rolagem no web
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const prevBodyOverflow = document.body.style.overflow;
@@ -45,7 +45,12 @@ export default function WelcomeScreen() {
     }
   }, []);
 
-  const handleAcessar = () => console.log('Navegar para Login');
+  // ✅ Navegação correta para a tela 'home.tsx' dentro da pasta (tabs)
+  const handleAcessar = () => {
+    console.log('Navegando para /home...');
+    router.replace('/(tabs)/home'); // ✅ Caminho direto para a tela desejada
+  };
+
   const handlePrimeiroAcesso = () => console.log('Navegar para Cadastro');
   const handleMenuPress = () => console.log('Abrir Menu Lateral');
 
@@ -53,11 +58,10 @@ export default function WelcomeScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ImageBackground
         source={FundoAcademia}
-        style={[styles.background, Platform.OS === 'web' ? styles.backgroundWeb : null]}
-        imageStyle={styles.bgImage}
+        style={styles.background as ViewStyle}
+        imageStyle={styles.bgImage as ImageStyle}
       >
         <StatusBar barStyle="light-content" translucent />
-
         <View style={styles.overlay}>
           {/* Cabeçalho */}
           <View style={styles.header}>
@@ -70,7 +74,7 @@ export default function WelcomeScreen() {
               <Text style={styles.headerText}>ZenitApp</Text>
             </View>
 
-            <View style={styles.menuButton} /> {/* espaço simétrico */}
+            <View style={styles.menuButton} />
           </View>
 
           {/* Conteúdo central */}
@@ -113,26 +117,30 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#000',
-  },
+  } as ViewStyle,
+
   background: {
     flex: 1,
     resizeMode: 'cover',
     backgroundColor: '#000',
-  },
-  backgroundWeb: {
-    height: '100vh',
-    minHeight: '100vh',
-  },
+    ...Platform.select({
+      web: {
+        height: '100vh' as any,
+        minHeight: '100vh' as any,
+      },
+    }),
+  } as ViewStyle,
+
   bgImage: {
     resizeMode: 'cover',
-  },
+  } as ImageStyle,
+
   overlay: {
     flex: 1,
     justifyContent: 'space-between',
     backgroundColor: 'rgba(0,0,0,0.6)',
-  },
+  } as ViewStyle,
 
-  // HEADER
   header: {
     width: '100%',
     flexDirection: 'row',
@@ -144,37 +152,43 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderBottomWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
-  },
+  } as ViewStyle,
+
   headerTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
+  } as ViewStyle,
+
   menuButton: {
     width: scaleSize(40),
     height: scaleSize(40),
     justifyContent: 'center',
     alignItems: 'center',
-  },
+    ...(Platform.OS === 'web' && { userSelect: 'none' as any }),
+  } as ViewStyle,
+
   headerLogo: {
     width: scaleSize(24),
     height: scaleSize(24),
     marginRight: scaleSize(8),
-  },
+  } as ImageStyle,
+
   headerText: {
     color: '#E2E8F0',
     fontSize: scaleFont(18),
     fontWeight: '600',
-  },
+    ...(Platform.OS === 'web' && { userSelect: 'none' as any }),
+  } as TextStyle,
 
-  // CONTEÚDO CENTRAL
   contentCenter: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: scaleSize(20),
-  },
+  } as ViewStyle,
+
   card: {
-    width: Math.min(width * 0.85, 400), // Limita tamanho máximo
+    width: Math.min(width * 0.85, 400),
     borderRadius: scaleSize(20),
     paddingVertical: scaleSize(30),
     paddingHorizontal: scaleSize(25),
@@ -186,33 +200,38 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: scaleSize(10) },
     shadowOpacity: 0.3,
     shadowRadius: scaleSize(15),
-  },
+    ...(Platform.OS === 'web' && { cursor: 'default' as any }),
+  } as ViewStyle,
+
   logoContainer: {
     alignItems: 'center',
     marginBottom: scaleSize(25),
-  },
+  } as ViewStyle,
+
   logoCircle: {
     backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: scaleSize(50),
     padding: scaleSize(15),
     marginBottom: scaleSize(10),
-  },
+  } as ViewStyle,
+
   logo: {
     width: scaleSize(60),
     height: scaleSize(60),
-  },
+  } as ImageStyle,
+
   appName: {
     fontSize: scaleFont(38),
     fontWeight: '700',
     color: '#fff',
     letterSpacing: 1,
-  },
+  } as TextStyle,
 
-  // BOTÕES
   buttonContainer: {
     width: '100%',
     alignItems: 'center',
-  },
+  } as ViewStyle,
+
   primaryButton: {
     backgroundColor: '#22C55E',
     paddingVertical: scaleSize(14),
@@ -221,7 +240,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: scaleSize(12),
     elevation: 5,
-  },
+  } as ViewStyle,
+
   secondaryButton: {
     backgroundColor: 'transparent',
     borderWidth: 2,
@@ -230,19 +250,22 @@ const styles = StyleSheet.create({
     borderRadius: scaleSize(12),
     width: '100%',
     alignItems: 'center',
-  },
+  } as ViewStyle,
+
   buttonText: {
     color: '#fff',
     fontSize: scaleFont(18),
     fontWeight: '600',
-  },
+    ...(Platform.OS === 'web' && { userSelect: 'none' as any }),
+  } as TextStyle,
+
   orText: {
     color: '#E2E8F0',
     fontSize: scaleFont(15),
     marginVertical: scaleSize(8),
-  },
+    ...(Platform.OS === 'web' && { userSelect: 'none' as any }),
+  } as TextStyle,
 
-  // FOOTER
   footer: {
     width: '100%',
     alignItems: 'center',
@@ -252,10 +275,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
     flexShrink: 0,
-  },
+  } as ViewStyle,
+
   footerText: {
     color: '#94A3B8',
     fontSize: scaleFont(13),
     textAlign: 'center',
-  },
+    ...(Platform.OS === 'web' && { userSelect: 'none' as any }),
+  } as TextStyle,
 });
