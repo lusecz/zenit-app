@@ -1,7 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  SafeAreaView, 
   ScrollView, 
   StatusBar, 
   StyleSheet, 
@@ -10,59 +9,129 @@ import {
   View, 
   ImageBackground, 
   Dimensions, 
-  Image, 
   Platform,
+  TextInput,
+  Alert,
   // Importando os tipos
   ViewStyle, 
   TextStyle, 
   ImageStyle 
 } from 'react-native';
 import { useRouter } from 'expo-router'; 
+import { initFirebase, getCurrentUserProfileRef } from './firebase-config'; // Importa configs
+import { getAuth, createUserWithEmailAndPassword, updateProfile, AuthError } from 'firebase/auth'; // Importa Auth e o tipo AuthError
+import { setDoc } from 'firebase/firestore'; // Importa Firestore
+import { FirebaseError } from 'firebase/app'; // <--- IMPORTAÇÃO PARA TIPAGEM DE ERRO MAIS ROBUSTA
 
-// --- CONSTANTES DE ESCALA RESPONSIVA (Baseado no seu index.tsx) ---
-const { width, height } = Dimensions.get('window');
+
+// --- CONSTANTES DE ESCALA RESPONSIVA ---
+const { width } = Dimensions.get('window');
 const DESIGN_WIDTH = 375;
 const DESIGN_HEIGHT = 812;
 const scaleW = width / DESIGN_WIDTH;
-const scaleH = height / DESIGN_HEIGHT;
+const scaleH = DESIGN_HEIGHT / 812;
 
 const scaleSize = (size: number) => Math.round(size * Math.min(scaleW, scaleH));
 const scaleFont = (size: number) => size * Math.min(scaleW, 1.15);
 
-// Importe os assets 
+// Importe o asset do fundo (Ajuste o caminho se necessário)
 const FundoAcademia = require('../assets/images/gym_background.jpg');
 
 
-// --- COMPONENTE: ITEM DE CONFIGURAÇÃO ---
-interface SettingItemProps {
-    icon: keyof typeof Ionicons.glyphMap;
-    title: string;
-    onPress: () => void;
-    isDestructive?: boolean;
-}
-const SettingItem: React.FC<SettingItemProps> = ({ icon, title, onPress, isDestructive = false }) => (
-    <TouchableOpacity style={profileStyles.settingItem} onPress={onPress}>
-        <View style={profileStyles.settingLeft}>
-            <Ionicons name={icon} size={scaleSize(20)} color={isDestructive ? '#FF4500' : '#E2E8F0'} style={profileStyles.settingIcon} />
-            <Text style={[profileStyles.settingTitle, isDestructive && profileStyles.destructiveText]}>{title}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={scaleSize(20)} color="#94A3B8" />
-    </TouchableOpacity>
-);
-
-
 // --- TELA PRINCIPAL ---
-export default function UserProfileScreen() {
+export default function CadastroScreen() {
   const router = useRouter(); 
+  const [name, setName] = useState('');
+  const [cpf, setCpf] = useState(''); // Campo adicional
+  const [email, setEmail] = useState(''); // Requerido pelo Firebase Auth
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogout = () => {
-      console.log('Usuário deslogado!');
-      // Implementar a lógica real de logout e redirecionar para a tela inicial (index)
-      router.replace('/'); 
+  // Inicializa o Firebase ao carregar o componente (Garante que só ocorra uma vez)
+  useEffect(() => {
+    initFirebase();
+  }, []);
+
+  const handleCadastro = async () => {
+      setErrorMessage('');
+      setIsLoading(true);
+
+      if (!name || !cpf || !email || !password || !confirmPassword) {
+          setErrorMessage('Por favor, preencha todos os campos.');
+          setIsLoading(false);
+          return;
+      }
+      if (password.length < 6) {
+        setErrorMessage('A senha deve ter pelo menos 6 caracteres.');
+        setIsLoading(false);
+        return;
+      }
+      if (password !== confirmPassword) {
+          setErrorMessage('As senhas não coincidem.');
+          setIsLoading(false);
+          return;
+      }
+      
+      try {
+        const authInstance = getAuth(); 
+
+        // 1. CRIAÇÃO DO USUÁRIO NO FIREBASE AUTHENTICATION
+        const userCredential = await createUserWithEmailAndPassword(authInstance, email, password);
+        const user = userCredential.user;
+
+        // 2. SALVAR O PERFIL COMPLETO (CPF e Nome) NO FIRESTORE
+        if (user.uid) {
+            const userRef = getCurrentUserProfileRef(user.uid);
+            await setDoc(userRef, {
+                uid: user.uid,
+                name: name,
+                cpf: cpf,
+                email: email,
+                registrationDate: new Date().toISOString(),
+            });
+            
+            // 3. Atualiza o Nome de Exibição no Firebase Auth
+            await updateProfile(user, { displayName: name });
+        }
+
+        Alert.alert("Sucesso!", "Cadastro realizado com sucesso. Você será redirecionado para a Home.");
+
+        // 4. Redirecionamento após cadastro (Login automático)
+        router.replace('/(tabs)/home'); 
+
+      } catch (error: any) {
+        // --- CÓDIGO DE DEPURACÃO MAIS ROBUSTO ---
+        console.error("Erro no Cadastro:", error);
+        
+        let msg = "Ocorreu um erro. Verifique sua conexão ou tente mais tarde.";
+        
+        // Tenta tipar como FirebaseError para capturar o código
+        const firebaseError = error as FirebaseError; 
+        
+        if (firebaseError.code) {
+          console.error("Código de Erro do Firebase:", firebaseError.code);
+          if (firebaseError.code === 'auth/email-already-in-use') {
+              msg = "Este e-mail já está em uso. Tente fazer login.";
+          } else if (firebaseError.code === 'auth/invalid-email') {
+              msg = "O formato do e-mail é inválido.";
+          } else if (firebaseError.code === 'auth/operation-not-allowed') {
+              msg = "A operação de cadastro não está ativada (Email/Password desativado no console).";
+          } else if (firebaseError.code === 'auth/weak-password') {
+              msg = "A senha é muito fraca. Escolha uma mais forte.";
+          } else if (firebaseError.code === 'permission-denied') {
+              msg = "Erro de permissão do Firestore. Verifique as regras de segurança.";
+          }
+        }
+        setErrorMessage(msg);
+      } finally {
+        setIsLoading(false);
+      }
   };
 
   const handleBack = () => {
-    router.back();
+      router.back();
   };
 
   return (
@@ -73,82 +142,111 @@ export default function UserProfileScreen() {
     >
       <StatusBar barStyle="light-content" translucent />
       
-      {/* Container Principal */}
       <View style={styles.overlay}>
         
-        {/* CABEÇALHO CUSTOMIZADO (Com botão de volta) */}
-        <SafeAreaView style={profileStyles.headerContainer}>
-            <TouchableOpacity onPress={handleBack} style={profileStyles.backButton}>
+        {/* CABEÇALHO CUSTOMIZADO COM VOLTAR */}
+        <View style={styles.header}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
                 <Ionicons name="arrow-back" size={scaleSize(24)} color="#E2E8F0" />
             </TouchableOpacity>
-            <Text style={profileStyles.headerTitle}>Meu Perfil</Text>
-            <View style={profileStyles.backButton} /> {/* Espaçador */}
-        </SafeAreaView> 
+            <Text style={styles.headerTitle}>Novo Cadastro</Text>
+            <View style={styles.backButton} />
+        </View> 
 
         {/* CONTEÚDO PRINCIPAL (COM SCROLL) */}
-        <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollFlex}>
+        <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollFlex} showsVerticalScrollIndicator={false}>
           
-          {/* SEÇÃO 1: INFORMAÇÕES BÁSICAS */}
-          <View style={profileStyles.profileHeader}>
-              <Ionicons name="person-circle-outline" size={scaleSize(100)} color="#22C55E" />
-              <Text style={profileStyles.userName}>Bruno Lima</Text>
-              <Text style={profileStyles.userEmail}>bruno.lima@zenit.app</Text>
-          </View>
-          
-          {/* SEÇÃO 2: MÉTRICAS RÁPIDAS */}
-          <View style={profileStyles.metricContainer}>
-              <View style={profileStyles.metricBox}>
-                  <Text style={profileStyles.metricValue}>88 kg</Text>
-                  <Text style={profileStyles.metricLabel}>Peso Atual</Text>
-              </View>
-              <View style={profileStyles.metricBox}>
-                  <Text style={profileStyles.metricValue}>1.80 m</Text>
-                  <Text style={profileStyles.metricLabel}>Altura</Text>
-              </View>
-              <View style={profileStyles.metricBox}>
-                  <Text style={profileStyles.metricValue}>24%</Text>
-                  <Text style={profileStyles.metricLabel}>Gordura</Text>
-              </View>
+          <Text style={styles.mainTitle}>Criar Conta</Text>
+
+          {/* MENSAGEM DE ERRO */}
+          {errorMessage ? (
+            <View style={styles.errorBox}>
+              <Feather name="alert-triangle" size={scaleSize(18)} color="#FECACA" />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+
+          {/* INPUTS DE CADASTRO */}
+          <View style={styles.inputContainer}>
+            
+            {/* NOME COMPLETO */}
+            <View style={styles.inputGroup}>
+                <Ionicons name="person-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Nome Completo:"
+                    placeholderTextColor="#94A3B8"
+                    onChangeText={setName}
+                    value={name}
+                    editable={!isLoading}
+                />
+            </View>
+
+            {/* E-MAIL */}
+            <View style={styles.inputGroup}>
+                <Ionicons name="mail-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="E-mail:"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    onChangeText={setEmail}
+                    value={email}
+                    editable={!isLoading}
+                />
+            </View>
+
+            {/* CPF */}
+            <View style={styles.inputGroup}>
+                <Ionicons name="arrow-forward-circle-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="CPF (apenas números):"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    onChangeText={setCpf}
+                    value={cpf}
+                    editable={!isLoading}
+                />
+            </View>
+
+            {/* SENHA */}
+            <View style={styles.inputGroup}>
+                <Ionicons name="lock-closed-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Crie sua senha (mín. 6 caracteres):"
+                    placeholderTextColor="#94A3B8"
+                    secureTextEntry
+                    onChangeText={setPassword}
+                    value={password}
+                    editable={!isLoading}
+                />
+            </View>
+            
+            {/* CONFIRMAR SENHA */}
+            <View style={styles.inputGroup}>
+                <Ionicons name="lock-open-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Confirme sua senha:"
+                    placeholderTextColor="#94A3B8"
+                    secureTextEntry
+                    onChangeText={setConfirmPassword}
+                    value={confirmPassword}
+                    editable={!isLoading}
+                />
+            </View>
+
           </View>
 
-          {/* SEÇÃO 3: CONFIGURAÇÕES */}
-          <View style={styles.section}>
-              <Text style={profileStyles.sectionHeaderTitle}>Conta e Preferências</Text>
-              <SettingItem 
-                icon="body-outline" 
-                title="Editar Dados Biométricos" 
-                onPress={() => console.log('Editar Dados')} 
-              />
-              <SettingItem 
-                icon="notifications-outline" 
-                title="Configurações de Notificação" 
-                onPress={() => console.log('Notificações')} 
-              />
-              <SettingItem 
-                icon="lock-closed-outline" 
-                title="Alterar Senha" 
-                onPress={() => console.log('Alterar Senha')} 
-              />
+          {/* BOTÃO DE AÇÃO */}
+          <View style={styles.actionButtonContainer}>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleCadastro} disabled={isLoading}>
+                <Text style={styles.primaryButtonText}>{isLoading ? 'CADASTRANDO...' : 'FINALIZAR CADASTRO'}</Text>
+            </TouchableOpacity>
           </View>
-          
-          {/* SEÇÃO 4: SUPORTE E LOGOUT */}
-          <View style={styles.section}>
-              <Text style={profileStyles.sectionHeaderTitle}>Suporte</Text>
-              <SettingItem 
-                icon="help-circle-outline" 
-                title="Ajuda e FAQ" 
-                onPress={() => console.log('Ajuda')} 
-              />
-              <SettingItem 
-                icon="log-out-outline" 
-                title="Sair (Logout)" 
-                onPress={handleLogout} 
-                isDestructive={true}
-              />
-          </View>
-
-          <View style={{height: scaleSize(20)}} /> {/* Espaçador */}
-          
         </ScrollView>
         
         {/* RODAPÉ FIXO (De Direitos Autorais) */}
@@ -164,109 +262,7 @@ export default function UserProfileScreen() {
 }
 
 
-// --- ESTILOS ESPECÍFICOS DO PERFIL ---
-const profileStyles = StyleSheet.create({
-    headerContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: scaleSize(18),
-        paddingVertical: scaleSize(15),
-        paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || scaleSize(15)) : scaleSize(15),
-        backgroundColor: 'rgba(15, 23, 42, 0.9)', // Fundo escuro opaco
-        borderBottomWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-    } as ViewStyle,
-    backButton: {
-        width: scaleSize(40),
-        height: scaleSize(24),
-        justifyContent: 'center',
-    } as ViewStyle,
-    headerTitle: {
-        color: '#E2E8F0',
-        fontSize: scaleFont(20),
-        fontWeight: 'bold',
-    } as TextStyle,
-
-    // Seção de Informações Principais
-    profileHeader: {
-        alignItems: 'center',
-        paddingVertical: scaleSize(20),
-        marginBottom: scaleSize(20),
-    } as ViewStyle,
-    userName: {
-        fontSize: scaleFont(28),
-        fontWeight: 'bold',
-        color: '#E2E8F0',
-        marginTop: scaleSize(10),
-    } as TextStyle,
-    userEmail: {
-        fontSize: scaleFont(16),
-        color: '#94A3B8',
-    } as TextStyle,
-    
-    // Seção de Métricas
-    metricContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        backgroundColor: 'rgba(30, 41, 59, 0.7)',
-        borderRadius: scaleSize(15),
-        paddingVertical: scaleSize(15),
-        marginBottom: scaleSize(30),
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-    } as ViewStyle,
-    metricBox: {
-        alignItems: 'center',
-    } as ViewStyle,
-    metricValue: {
-        fontSize: scaleFont(20),
-        fontWeight: 'bold',
-        color: '#22C55E', // Cor de destaque
-    } as TextStyle,
-    metricLabel: {
-        fontSize: scaleFont(14),
-        color: '#94A3B8',
-        marginTop: scaleSize(2),
-    } as TextStyle,
-
-    // Itens de Configuração (ListView)
-    sectionHeaderTitle: {
-        fontSize: scaleFont(16),
-        color: '#94A3B8',
-        marginBottom: scaleSize(10),
-        paddingHorizontal: scaleSize(10),
-        fontWeight: '600',
-    } as TextStyle,
-    settingItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: 'rgba(30, 41, 59, 0.8)',
-        paddingVertical: scaleSize(15),
-        paddingHorizontal: scaleSize(15),
-        marginBottom: 1, // Pequena linha divisória
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
-    } as ViewStyle,
-    settingLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    } as ViewStyle,
-    settingIcon: {
-        marginRight: scaleSize(15),
-    } as TextStyle,
-    settingTitle: {
-        fontSize: scaleFont(16),
-        color: '#E2E8F0',
-    } as TextStyle,
-    destructiveText: {
-        color: '#FF4500',
-    } as TextStyle,
-});
-
-
-// --- ESTILOS PRINCIPAIS DA TELA (Reutilizados do index.tsx) ---
+// --- STYLESHEET (Reutilizado do Login para Consistência) ---
 const styles = StyleSheet.create({
   background: {
     flex: 1,
@@ -278,24 +274,121 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   bgImage: {
     resizeMode: 'cover',
-    opacity: 0.35, // Um pouco mais opaco que a Home para destacar o conteúdo
+    opacity: 0.35,
   } as ImageStyle,
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)', 
+    backgroundColor: 'rgba(0,0,0,0.6)', 
     justifyContent: 'space-between',
   } as ViewStyle,
+
+  // HEADER CUSTOMIZADO
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: scaleSize(18),
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || scaleSize(40)) : scaleSize(40),
+    paddingBottom: scaleSize(12),
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  } as ViewStyle,
+  backButton: {
+    width: scaleSize(40),
+    height: scaleSize(24),
+    justifyContent: 'center',
+  } as ViewStyle,
+  headerTitle: {
+    color: '#E2E8F0',
+    fontSize: scaleFont(18),
+    fontWeight: '600',
+  } as TextStyle,
+
+  // SCROLL / CONTENT
   scrollFlex: {
     flex: 1,
   } as ViewStyle,
   scrollContainer: {
-    paddingHorizontal: scaleSize(20),
-    paddingTop: scaleSize(10),
+    padding: scaleSize(25),
+    alignItems: 'center',
+    flexGrow: 1,
   } as ViewStyle,
-  section: {
-    marginBottom: scaleSize(25),
+
+  mainTitle: {
+    fontSize: scaleFont(36),
+    fontWeight: 'bold',
+    color: '#E2E8F0',
+    alignSelf: 'flex-start',
+    marginBottom: scaleSize(30),
+  } as TextStyle,
+
+  // MENSAGEM DE ERRO
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     width: '100%',
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    padding: scaleSize(12),
+    borderRadius: scaleSize(8),
+    marginBottom: scaleSize(20),
+    borderWidth: 1,
+    borderColor: '#F87171',
   } as ViewStyle,
+  errorText: {
+    color: '#FECACA',
+    fontSize: scaleFont(14),
+    marginLeft: scaleSize(10),
+    flexShrink: 1,
+  } as TextStyle,
+
+  // INPUTS
+  inputContainer: {
+    width: '100%',
+    marginBottom: scaleSize(40),
+  } as ViewStyle,
+  inputGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: scaleSize(8),
+    paddingHorizontal: scaleSize(15),
+    marginBottom: scaleSize(20),
+    height: scaleSize(50),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  } as ViewStyle,
+  inputIcon: {
+    marginRight: scaleSize(10),
+  } as TextStyle,
+  input: {
+    flex: 1,
+    color: '#E2E8F0',
+    fontSize: scaleFont(16),
+    height: '100%',
+  } as TextStyle,
+
+  // BOTÕES DE AÇÃO
+  actionButtonContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: scaleSize(20),
+  } as ViewStyle,
+  primaryButton: {
+    backgroundColor: '#22C55E',
+    paddingVertical: scaleSize(16),
+    borderRadius: scaleSize(10),
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: scaleSize(10),
+  } as ViewStyle,
+  primaryButtonText: {
+    color: '#0F172A',
+    fontSize: scaleFont(20),
+    fontWeight: 'bold',
+  } as TextStyle,
+  
+  // RODAPÉ
   footer: {
     width: '100%',
     alignItems: 'center',
@@ -312,3 +405,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
 });
+```
+
+```firestore
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Regras de segurança para a coleção 'users'
+    match /artifacts/{appId}/users/{userId}/{document=**} {
+      // Permite que o usuário autenticado leia/escreva apenas se o userId for o UID do usuário
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Regra para a COLEÇÃO 'users' (onde você salva o perfil)
+    // CRÍTICO: Permite a criação (create) de um novo documento de perfil se o usuário estiver autenticado.
+    match /artifacts/{appId}/users/{userId} {
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
