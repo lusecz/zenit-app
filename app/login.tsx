@@ -1,5 +1,5 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ScrollView, 
   StatusBar, 
@@ -11,12 +11,15 @@ import {
   Dimensions, 
   Platform,
   TextInput,
+  Alert,
   // Importando os tipos
   ViewStyle, 
   TextStyle, 
   ImageStyle 
 } from 'react-native';
 import { useRouter } from 'expo-router'; 
+import { initFirebase } from './firebase-config'; // Importa a config
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'; // Importa a função de login
 
 // --- CONSTANTES DE ESCALA RESPONSIVA ---
 const { width } = Dimensions.get('window');
@@ -35,34 +38,67 @@ const FundoAcademia = require('../assets/images/gym_background.jpg');
 // --- TELA PRINCIPAL ---
 export default function LoginScreen() {
   const router = useRouter(); 
-  const [cpf, setCpf] = useState('');
+  
+  // O Firebase usa E-mail e Senha, então adicionamos o E-mail.
+  const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = () => {
-      setErrorMessage('');
+  // Inicializa o Firebase ao carregar o componente
+  useEffect(() => {
+    initFirebase();
+  }, []);
 
-      // 1. Validação Básica: Impede o redirecionamento se os campos estiverem vazios
-      if (!cpf || !password) {
-          setErrorMessage('Por favor, preencha o CPF e a senha.');
-          return;
-      }
-      
-      // 2. Lógica de autenticação simulada (supondo sucesso aqui)
-      console.log(`Tentativa de Login bem-sucedida: CPF=${cpf}`);
-      
-      // 3. Redirecionamento para a Home Page após login bem-sucedido
-      router.replace('/(tabs)/home'); 
+  const handleLogin = async () => {
+    setErrorMessage('');
+    setIsLoading(true);
+
+    if (!email || !password) {
+        setErrorMessage('Por favor, preencha o E-mail e a senha.');
+        setIsLoading(false);
+        return;
+    }
+
+    try {
+        const authInstance = getAuth();
+
+        // TENTA FAZER O LOGIN COM E-MAIL E SENHA
+        await signInWithEmailAndPassword(authInstance, email, password);
+
+        // Se o login for bem-sucedido, redireciona
+        Alert.alert("Sucesso!", "Login realizado com sucesso. Bem-vindo(a)!");
+        router.replace('/(tabs)/home'); 
+
+    } catch (error: any) {
+        console.error("Erro no Login:", error.message);
+        
+        let msg = "Ocorreu um erro. Verifique sua conexão.";
+        
+        // Trata códigos de erro comuns do Firebase
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+            msg = "E-mail ou senha inválidos. Verifique suas credenciais.";
+        } else if (error.code === 'auth/invalid-email') {
+            msg = "O formato do e-mail é inválido.";
+        }
+        
+        setErrorMessage(msg);
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   const handleForgotPassword = () => {
       console.log('Navegar para Esqueceu a Senha');
   };
   
-  // Navegação para a tela de Cadastro (usa push)
+  // Navegação para a tela de Cadastro
   const handleNavigateToCadastro = () => {
-      // Usamos 'as any' porque a rota /cadastro ainda não existe na Stack
-      (router as any).push('/cadastro');
+      router.push('/cadastro');
+  };
+  
+  const handleBack = () => {
+      router.back();
   };
 
   return (
@@ -78,10 +114,10 @@ export default function LoginScreen() {
         
         {/* CABEÇALHO CUSTOMIZADO COM VOLTAR */}
         <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
                 <Ionicons name="arrow-back" size={scaleSize(24)} color="#E2E8F0" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>ZenitApp</Text>
+            <Text style={styles.headerTitle}>Entrar</Text>
             <View style={styles.backButton} /> {/* Espaçador */}
         </View> 
 
@@ -90,7 +126,7 @@ export default function LoginScreen() {
           
           <Text style={styles.mainTitle}>Entrar</Text>
 
-          {/* MENSAGEM DE ERRO (NOVO) */}
+          {/* MENSAGEM DE ERRO */}
           {errorMessage ? (
             <View style={styles.errorBox}>
               <Feather name="alert-triangle" size={scaleSize(18)} color="#FECACA" />
@@ -101,16 +137,18 @@ export default function LoginScreen() {
           {/* INPUTS DE LOGIN */}
           <View style={styles.inputContainer}>
             
-            {/* CPF */}
+            {/* E-MAIL */}
             <View style={styles.inputGroup}>
-                <Ionicons name="arrow-forward-circle-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
+                <Ionicons name="mail-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
                 <TextInput
                     style={styles.input}
-                    placeholder="Digite seu CPF:"
+                    placeholder="E-mail:"
                     placeholderTextColor="#94A3B8"
-                    keyboardType="numeric"
-                    onChangeText={setCpf}
-                    value={cpf}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    onChangeText={setEmail}
+                    value={email}
+                    editable={!isLoading}
                 />
             </View>
 
@@ -124,11 +162,12 @@ export default function LoginScreen() {
                     secureTextEntry
                     onChangeText={setPassword}
                     value={password}
+                    editable={!isLoading}
                 />
             </View>
 
-            {/* ESQUECEU A SENHA */}
-            <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordButton}>
+            {/* Esqueceu a senha */}
+            <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPassword} disabled={isLoading}>
                 <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
             </TouchableOpacity>
 
@@ -136,15 +175,14 @@ export default function LoginScreen() {
 
           {/* BOTÕES DE AÇÃO */}
           <View style={styles.actionButtonContainer}>
-            
-            <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
-                <Text style={styles.primaryButtonText}>Acessar</Text>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleLogin} disabled={isLoading}>
+                <Text style={styles.primaryButtonText}>{isLoading ? 'ENTRANDO...' : 'ACESSAR'}</Text>
             </TouchableOpacity>
 
             <Text style={styles.orText}>OU</Text>
 
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleNavigateToCadastro}>
-                <Text style={styles.secondaryButtonText}>Primeiro Acesso</Text>
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleNavigateToCadastro} disabled={isLoading}>
+                <Text style={styles.secondaryButtonText}>PRIMEIRO ACESSO</Text>
             </TouchableOpacity>
 
           </View>
@@ -163,7 +201,7 @@ export default function LoginScreen() {
 }
 
 
-// --- STYLESHEET ---
+// --- STYLESHEET (Reutilizado do Cadastro para Consistência) ---
 const styles = StyleSheet.create({
   background: {
     flex: 1,
@@ -213,6 +251,7 @@ const styles = StyleSheet.create({
   scrollContainer: {
     padding: scaleSize(25),
     alignItems: 'center',
+    flexGrow: 1,
   } as ViewStyle,
 
   mainTitle: {
@@ -228,7 +267,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    backgroundColor: 'rgba(239, 68, 68, 0.2)', // Vermelho claro
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
     padding: scaleSize(12),
     borderRadius: scaleSize(8),
     marginBottom: scaleSize(20),
@@ -267,8 +306,11 @@ const styles = StyleSheet.create({
     fontSize: scaleFont(16),
     height: '100%',
   } as TextStyle,
-  forgotPasswordButton: {
+
+  // TEXTO ESQUECEU SENHA
+  forgotPassword: {
     alignSelf: 'flex-end',
+    marginBottom: scaleSize(30),
   } as ViewStyle,
   forgotPasswordText: {
     color: '#94A3B8',
@@ -279,7 +321,6 @@ const styles = StyleSheet.create({
   actionButtonContainer: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: scaleSize(20),
   } as ViewStyle,
   primaryButton: {
     backgroundColor: '#22C55E',
@@ -287,31 +328,32 @@ const styles = StyleSheet.create({
     borderRadius: scaleSize(10),
     width: '100%',
     alignItems: 'center',
-    marginBottom: scaleSize(15),
+    marginBottom: scaleSize(10),
   } as ViewStyle,
   primaryButtonText: {
     color: '#0F172A',
     fontSize: scaleFont(20),
     fontWeight: 'bold',
   } as TextStyle,
-  orText: {
-    color: '#94A3B8',
-    fontSize: scaleFont(16),
-    marginBottom: scaleSize(15),
-  } as TextStyle,
   secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#94A3B8',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingVertical: scaleSize(16),
     borderRadius: scaleSize(10),
     width: '100%',
     alignItems: 'center',
+    marginTop: scaleSize(15),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   } as ViewStyle,
   secondaryButtonText: {
     color: '#E2E8F0',
     fontSize: scaleFont(20),
-    fontWeight: '600',
+    fontWeight: 'bold',
+  } as TextStyle,
+  orText: {
+    color: '#94A3B8',
+    fontSize: scaleFont(16),
+    marginVertical: scaleSize(10),
   } as TextStyle,
   
   // RODAPÉ
