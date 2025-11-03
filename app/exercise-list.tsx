@@ -12,14 +12,14 @@ import {
   Platform,
   Linking,
   Alert,
-  ImageBackground, // Importado para o fundo de academia
+  ImageBackground,
   // Importando os tipos para evitar erros de TypeScript
   ViewStyle, 
   TextStyle, 
   ImageStyle,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-// Importação do arquivo de dados (ATENÇÃO: Mantenha o caminho correto!)
+// ATENÇÃO: Verifique o caminho de importação (Se exercises.ts está em constants/)
 import { EXERCISE_DATA, MuscleGroup, Exercise } from '../constants/exercises'; 
 
 // --- CONSTANTES DE ESCALA RESPONSIVA ---
@@ -33,7 +33,7 @@ const scale = Math.min(scaleW, scaleH);
 const scaleSize = (size: number) => Math.round(size * scale);
 const scaleFont = (size: number) => size * Math.min(scaleW, 1.15);
 
-// Importe o asset do fundo (Caminho corrigido)
+// Importe o asset do fundo (Caminho corrigido para a raiz /assets/images)
 const FundoAcademia = require('../assets/images/gym_background.jpg');
 
 
@@ -105,6 +105,20 @@ const ExerciseItem: React.FC<ExerciseItemProps> = ({ item, onAdd }) => {
     );
 };
 
+// --- NOVO COMPONENTE: CABEÇALHO DE SELEÇÃO (ADICIONAR AO TREINO) ---
+interface SelectionHeaderProps {
+    selectedDay: string | null;
+    setSelectedDay: (day: string) => void;
+}
+const SelectionHeader: React.FC<SelectionHeaderProps> = ({ selectedDay, setSelectedDay }) => (
+    <View style={listStyles.selectionHeaderContainer}>
+        <View style={listStyles.fullWidthButton}>
+            <Text style={listStyles.footerTitleText}>ADICIONAR AO TREINO</Text>
+        </View>
+        <DayButtons onSelectDay={setSelectedDay} selectedDay={selectedDay} />
+    </View>
+);
+
 
 // --- TELA PRINCIPAL ---
 export default function ExerciseListScreen() {
@@ -118,7 +132,7 @@ export default function ExerciseListScreen() {
     
     const handleAddExerciseToTraining = (exercise: Exercise) => {
         if (!selectedDay) {
-            Alert.alert("Dia Não Selecionado", "Escolha um dia da semana (na parte inferior) para adicionar o exercício.");
+            Alert.alert("Dia Não Selecionado", "Escolha um dia da semana (na parte superior) para adicionar o exercício.");
             return;
         }
         Alert.alert("Adicionado!", `${exercise.name} adicionado ao treino de ${selectedDay}.`);
@@ -132,20 +146,6 @@ export default function ExerciseListScreen() {
                 <Ionicons name="arrow-back" size={scaleSize(24)} color="#E2E8F0" />
             </TouchableOpacity>
             <Text style={listStyles.mainTitle}>Listagem de Exercícios</Text>
-        </View>
-    );
-    
-    // Footer customizado com os botões de dia (Apoio na imagem)
-    const renderFooter = () => (
-        <View style={listStyles.footerContainer}>
-            
-            {/* Título e Botão ADICIONAR AO TREINO (Grande) */}
-            <View style={listStyles.fullWidthButton}>
-                <Text style={listStyles.footerTitleText}>ADICIONAR AO TREINO</Text>
-            </View>
-            
-            {/* Botões de Dias */}
-            <DayButtons onSelectDay={setSelectedDay} selectedDay={selectedDay} />
         </View>
     );
 
@@ -172,7 +172,10 @@ export default function ExerciseListScreen() {
                         stickySectionHeadersEnabled={false}
                         style={styles.list}
                         contentContainerStyle={styles.listContent}
-                        ListFooterComponent={renderFooter()}
+                        // CRÍTICO: Usa o novo componente SelectionHeader no ListHeaderComponent
+                        ListHeaderComponent={
+                            <SelectionHeader selectedDay={selectedDay} setSelectedDay={setSelectedDay} />
+                        }
                     />
                 </View>
                 
@@ -196,7 +199,7 @@ const dayStyles = StyleSheet.create({
         height: scaleSize(35),
         borderRadius: scaleSize(17.5),
         borderWidth: 2,
-        borderColor: '#E2E8F0', // Borda branca/clara para consistência
+        borderColor: '#22C55E',
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: 'transparent',
@@ -221,7 +224,6 @@ const listStyles = StyleSheet.create({
         justifyContent: 'flex-start',
         paddingHorizontal: scaleSize(20),
         paddingVertical: scaleSize(15),
-        // Fundo semi-transparente
         backgroundColor: 'rgba(15, 23, 42, 0.85)', 
         borderBottomWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -234,12 +236,35 @@ const listStyles = StyleSheet.create({
         fontSize: scaleFont(24),
         fontWeight: 'bold',
     } as TextStyle,
+    
+    // NOVO ESTILO: Container para o cabeçalho de seleção
+    selectionHeaderContainer: {
+        padding: scaleSize(20),
+        backgroundColor: 'rgba(30, 41, 59, 0.95)',
+        borderBottomWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+        alignItems: 'center',
+        width: '100%',
+    } as ViewStyle,
+    fullWidthButton: {
+        backgroundColor: 'transparent',
+        paddingVertical: scaleSize(15),
+        borderRadius: scaleSize(10),
+        width: '100%',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#E2E8F0',
+    } as ViewStyle,
+    footerTitleText: {
+        color: '#E2E8F0',
+        fontSize: scaleFont(18),
+        fontWeight: 'bold',
+    } as TextStyle,
 
     sectionHeader: {
         fontSize: scaleFont(20),
         fontWeight: 'bold',
         color: '#E2E8F0',
-        // Fundo mais claro e semi-transparente para o cabeçalho de seção
         backgroundColor: 'rgba(30, 41, 59, 0.9)', 
         paddingHorizontal: scaleSize(20),
         paddingVertical: scaleSize(10),
@@ -256,10 +281,9 @@ const listStyles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: scaleSize(15),
         paddingHorizontal: scaleSize(20),
-        // Fundo muito transparente (fundo de academia visível)
         backgroundColor: 'rgba(0, 0, 0, 0.4)', 
         borderBottomWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)', // Linha divisória suave
+        borderColor: '#1E293B',
     } as ViewStyle,
     col1: {
         width: '45%',
@@ -289,31 +313,6 @@ const listStyles = StyleSheet.create({
         padding: scaleSize(5),
         marginLeft: scaleSize(10),
     } as ViewStyle,
-
-    // ESTILOS DO RODAPÉ INFERIOR (ADICIONAR AO TREINO)
-    footerContainer: {
-        padding: scaleSize(20),
-        paddingBottom: Platform.OS === 'web' ? scaleSize(20) : 0, 
-        backgroundColor: 'rgba(30, 41, 59, 0.95)', // Fundo quase opaco para botões
-        borderTopWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-        alignItems: 'center',
-        width: '100%',
-    } as ViewStyle,
-    fullWidthButton: {
-        backgroundColor: 'transparent',
-        paddingVertical: scaleSize(15),
-        borderRadius: scaleSize(10),
-        width: '100%',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: '#E2E8F0', // Borda branca
-    } as ViewStyle,
-    footerTitleText: {
-        color: '#E2E8F0',
-        fontSize: scaleFont(18),
-        fontWeight: 'bold',
-    } as TextStyle,
 });
 
 
@@ -321,7 +320,7 @@ const listStyles = StyleSheet.create({
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: 'transparent', // O SafeAreaView agora é transparente para não cobrir o fundo
+        backgroundColor: 'transparent',
         paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0,
     } as ViewStyle,
     background: {
@@ -337,15 +336,15 @@ const styles = StyleSheet.create({
     } as ViewStyle,
     bgImage: {
         resizeMode: 'cover',
-        opacity: 0.25, // Transparência na imagem de fundo
+        opacity: 0.25,
     } as ImageStyle,
     container: {
         flex: 1,
-        backgroundColor: 'transparent', // Container também transparente
+        backgroundColor: 'transparent',
     } as ViewStyle,
     list: {
         flex: 1,
-        backgroundColor: 'transparent', // Lista transparente
+        backgroundColor: 'transparent',
     } as ViewStyle,
     listContent: {
         paddingBottom: scaleSize(20),
