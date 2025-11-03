@@ -4,6 +4,7 @@ import { Stack } from 'expo-router'; // Stack é o seu Navigator
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
+import { RoutineProvider } from '@/context/RoutineContext';
 import { WorkoutProvider } from '@/context/WorkoutContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
@@ -19,14 +20,16 @@ export default function RootLayout() {
   }
 
   return (
-    <WorkoutProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </WorkoutProvider>
+    <RoutineProvider>
+      <WorkoutProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </WorkoutProvider>
+    </RoutineProvider>
   );
 }
