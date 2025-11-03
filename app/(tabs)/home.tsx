@@ -1,7 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { 
-  SafeAreaView, 
   ScrollView, 
   StatusBar, 
   StyleSheet, 
@@ -12,11 +11,13 @@ import {
   Dimensions, 
   Image, 
   Platform,
-  // Importando os tipos para evitar erros de TypeScript
+  // Tipos para evitar erros do TypeScript
   ViewStyle, 
   TextStyle, 
   ImageStyle 
 } from 'react-native';
+import { useRouter } from 'expo-router'; 
+
 
 // --- CONSTANTES DE ESCALA RESPONSIVA ---
 const { width, height } = Dimensions.get('window');
@@ -28,18 +29,19 @@ const scaleH = height / DESIGN_HEIGHT;
 const scaleSize = (size: number) => Math.round(size * Math.min(scaleW, scaleH));
 const scaleFont = (size: number) => size * Math.min(scaleW, 1.15);
 
-// Importe os assets (Certifique-se que o caminho está correto: dois '..' para sair de (tabs) e 'app')
+// Importe os assets 
 const FundoAcademia = require('../../assets/images/gym_background.jpg');
 const Logo = require('../../assets/images/zenit_logo.png');
 
 
-// --- COMPONENTE DE CABEÇALHO FIXO (Baseado no index.tsx) ---
+// --- COMPONENTE DE CABEÇALHO FIXO (SEM SAFEAREADVIEW) ---
 function HeaderBar() {
   const handleMenuPress = () => console.log('Abrir Menu Lateral');
   const handleProfilePress = () => console.log('Abrir Perfil');
   
+  // 🛑 ALTERAÇÃO CRÍTICA: Removido o SafeAreaView daqui
   return (
-    <SafeAreaView style={styles.header}>
+    <View style={styles.header}> 
       {/* ÍCONE DO MENU (Esquerda) */}
       <TouchableOpacity onPress={handleMenuPress} style={styles.menuButton}>
         <Feather name="menu" size={scaleSize(22)} color="#fff" />
@@ -55,11 +57,11 @@ function HeaderBar() {
       <TouchableOpacity onPress={handleProfilePress} style={styles.menuButton}>
         <Ionicons name="person-circle-outline" size={scaleSize(26)} color="#fff" />
       </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
 }
 
-// --- COMPONENTE: BOTÕES DOS DIAS DA SEMANA ---
+// --- COMPONENTE: BOTÕES DOS DIAS DA SEMANA (Mantido) ---
 const diasDaSemana = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 const DayButtons = () => {
     return (
@@ -69,7 +71,6 @@ const DayButtons = () => {
                     key={index}
                     style={[
                         dayStyles.button, 
-                        // Exemplo de como destacar um dia (ex: T - Terça-feira)
                         index === 2 && dayStyles.activeButton
                     ]}
                     onPress={() => console.log(`Dia selecionado: ${dia}`)}
@@ -83,6 +84,13 @@ const DayButtons = () => {
 
 // --- COMPONENTE PRINCIPAL ---
 export default function HomeScreen() {
+  const router = useRouter(); 
+  
+  const handleNavigateToExercises = () => {
+    console.log('Navegando para Listagem de Exercícios...');
+    router.push('/exercise-list'); 
+  };
+
   return (
     <ImageBackground
       source={FundoAcademia}
@@ -91,16 +99,15 @@ export default function HomeScreen() {
     >
       <StatusBar barStyle="light-content" translucent />
       
-      {/* O overlay/overlay é o container principal e usa space-between */}
+      {/* O overlay é o container principal */}
       <View style={styles.overlay}>
         
-        {/* CABEÇALHO FIXO */}
+        {/* CABEÇALHO FIXO (Fica no topo) */}
         <HeaderBar /> 
         
         {/* CONTEÚDO PRINCIPAL (COM SCROLL) */}
         <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollFlex}>
           
-          {/* SEÇÃO 1: Boas-vindas e Motivacional */}
           <View style={styles.section}>
             <Text style={styles.titleWelcome}>Bem-vindo! 👋</Text>
             <Text style={styles.subtitleWelcome}>
@@ -108,13 +115,11 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          {/* SEÇÃO 2: Seleção de Treino (Dias da Semana) */}
           <View style={styles.section}>
             <Text style={styles.title}>Selecione o Treino de Hoje</Text>
             <DayButtons /> 
           </View>
           
-          {/* SEÇÃO 3: Progresso e Métricas */}
           <View style={styles.section}>
             <Text style={styles.title}>Progresso Semanal</Text>
             <Text style={styles.subtitle}>Você completou 4 de 5 treinos previstos</Text>
@@ -126,10 +131,10 @@ export default function HomeScreen() {
             <Text style={styles.subtitle}>Treinos Realizados: 4</Text>
           </View>
 
-          {/* SEÇÃO 4: Ações Rápidas (Estilo de Botão do Novo Modelo) */}
+          {/* SEÇÃO 4: Ações Rápidas */}
           <View style={styles.section}>
             <Text style={styles.title}>Ações Rápidas</Text>
-            <TouchableOpacity style={styles.actionButton} onPress={() => console.log('Exercícios')}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToExercises}>
               <Text style={styles.actionButtonText}>Exercícios Cadastrados</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={() => console.log('Organizar')}>
@@ -142,13 +147,6 @@ export default function HomeScreen() {
 
         </ScrollView>
         
-        {/* RODAPÉ FIXO (Baseado no index.tsx) */}
-        <View style={styles.footer}>
-            <Text style={styles.footerText}>
-                © 2025 ZenitApp. Todos os direitos reservados.
-            </Text>
-        </View>
-
       </View>
     </ImageBackground>
   );
@@ -187,7 +185,7 @@ const dayStyles = StyleSheet.create({
 });
 
 
-// --- STYLESHEET PRINCIPAL (ADAPTADO) ---
+// --- STYLESHEET PRINCIPAL ---
 const styles = StyleSheet.create({
   // BACKGROUND
   background: {
@@ -208,7 +206,6 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)', 
-    justifyContent: 'space-between', // CRÍTICO: Fixa Header e Footer
   } as ViewStyle,
 
   // HEADER BAR (Fixo no topo)
@@ -218,7 +215,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: scaleSize(18),
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || scaleSize(40)) : scaleSize(40),
+    // 🛑 AJUSTE: Removemos o paddingTop do HeaderBar e o delegamos para o StatusBar, que é mais preciso
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || scaleSize(40)) : scaleSize(40), 
     paddingBottom: scaleSize(12),
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderBottomWidth: 1,
@@ -245,13 +243,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
   
-  // SCROLL CONTAINER FLEXÍVEL (Preenche o espaço entre Header e Footer)
+  // SCROLL CONTAINER FLEXÍVEL 
   scrollFlex: {
-      flex: 1, 
+      flex: 1,
   } as ViewStyle,
   scrollContainer: {
     padding: scaleSize(20),
     paddingTop: scaleSize(10),
+    paddingBottom: scaleSize(100), 
     alignItems: 'flex-start',
   } as ViewStyle,
   section: {
@@ -299,7 +298,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
 
-  // RODAPÉ FIXO
   footer: {
     width: '100%',
     alignItems: 'center',
@@ -308,7 +306,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderTopWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
-    flexShrink: 0,
+    flexShrink: 0, 
   } as ViewStyle,
   footerText: {
     color: '#94A3B8',

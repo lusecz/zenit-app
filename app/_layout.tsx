@@ -20,18 +20,26 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         
-        {/* 1. ROTA PRINCIPAL: AGORA APONTA PARA app/index.tsx */}
+        {/* 1. ROTA PRINCIPAL: Tela de Boas-Vindas */}
         <Stack.Screen 
-          name="index" // <--- CORREÇÃO: Deve ser 'index' para a rota raiz
+          name="index" 
           options={{ 
-            headerShown: false, // Oculta o cabeçalho "index"
+            headerShown: false, 
           }} 
         />
         
-        {/* 2. ROTAS PÓS-LOGIN: O GRUPO DE ABAS */}
+        {/* 2. ROTA DA LISTAGEM DE EXERCÍCIOS (Nova tela fora das tabs) */}
+        <Stack.Screen 
+          name="exercise-list" // <-- CRÍTICO: Rota para app/exercise-list.tsx
+          options={{ 
+            headerShown: false, 
+          }} 
+        />
+
+        {/* 3. ROTAS PÓS-LOGIN: O GRUPO DE ABAS */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         
-        {/* 3. Rota de Erro */}
+        {/* 4. Rota de Erro */}
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
