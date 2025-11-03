@@ -9,4 +9,5 @@ export interface Exercise {
   id: string;
   name: string;
   sets: ExerciseSet[];
+  restTime: number;
 }

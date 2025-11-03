@@ -60,6 +60,7 @@ export function WorkoutProvider({ children }: WorkoutProviderProps) {
       id: uuidv4(),
       name,
       sets: [],
+      restTime: 60, // padrão de 60 segundos
     };
     setExercises(prev => [...prev, newExercise]);
   };
