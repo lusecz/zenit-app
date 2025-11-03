@@ -33,36 +33,38 @@ const FundoAcademia = require('../assets/images/gym_background.jpg');
 
 
 // --- TELA PRINCIPAL ---
-export default function LoginScreen() {
+export default function CadastroScreen() {
   const router = useRouter(); 
+  const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleLogin = () => {
+  const handleCadastro = () => {
       setErrorMessage('');
 
-      // 1. Validação Básica: Impede o redirecionamento se os campos estiverem vazios
-      if (!cpf || !password) {
-          setErrorMessage('Por favor, preencha o CPF e a senha.');
+      // 1. Validação de Campos
+      if (!name || !cpf || !password || !confirmPassword) {
+          setErrorMessage('Por favor, preencha todos os campos.');
+          return;
+      }
+      if (password !== confirmPassword) {
+          setErrorMessage('As senhas não coincidem.');
           return;
       }
       
-      // 2. Lógica de autenticação simulada (supondo sucesso aqui)
-      console.log(`Tentativa de Login bem-sucedida: CPF=${cpf}`);
+      // 2. Lógica de cadastro simulada (supondo sucesso aqui)
+      console.log(`Novo usuário cadastrado: ${name} (CPF: ${cpf})`);
       
-      // 3. Redirecionamento para a Home Page após login bem-sucedido
+      // 3. Redirecionamento após cadastro (geralmente para Home ou Login)
+      // Após o cadastro, levamos para a Home (simulando login automático)
       router.replace('/(tabs)/home'); 
   };
 
-  const handleForgotPassword = () => {
-      console.log('Navegar para Esqueceu a Senha');
-  };
-  
-  // Navegação para a tela de Cadastro (usa push)
-  const handleNavigateToCadastro = () => {
-      // Usamos 'as any' porque a rota /cadastro ainda não existe na Stack
-      (router as any).push('/cadastro');
+  // Navegação de volta para a tela anterior (login ou onboarding)
+  const handleBack = () => {
+      router.back();
   };
 
   return (
@@ -78,19 +80,19 @@ export default function LoginScreen() {
         
         {/* CABEÇALHO CUSTOMIZADO COM VOLTAR */}
         <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
                 <Ionicons name="arrow-back" size={scaleSize(24)} color="#E2E8F0" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>ZenitApp</Text>
+            <Text style={styles.headerTitle}>Novo Cadastro</Text>
             <View style={styles.backButton} /> {/* Espaçador */}
         </View> 
 
         {/* CONTEÚDO PRINCIPAL (COM SCROLL) */}
         <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollFlex} showsVerticalScrollIndicator={false}>
           
-          <Text style={styles.mainTitle}>Entrar</Text>
+          <Text style={styles.mainTitle}>Criar Conta</Text>
 
-          {/* MENSAGEM DE ERRO (NOVO) */}
+          {/* MENSAGEM DE ERRO */}
           {errorMessage ? (
             <View style={styles.errorBox}>
               <Feather name="alert-triangle" size={scaleSize(18)} color="#FECACA" />
@@ -98,15 +100,27 @@ export default function LoginScreen() {
             </View>
           ) : null}
 
-          {/* INPUTS DE LOGIN */}
+          {/* INPUTS DE CADASTRO */}
           <View style={styles.inputContainer}>
             
+            {/* NOME COMPLETO */}
+            <View style={styles.inputGroup}>
+                <Ionicons name="person-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Nome Completo:"
+                    placeholderTextColor="#94A3B8"
+                    onChangeText={setName}
+                    value={name}
+                />
+            </View>
+
             {/* CPF */}
             <View style={styles.inputGroup}>
                 <Ionicons name="arrow-forward-circle-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
                 <TextInput
                     style={styles.input}
-                    placeholder="Digite seu CPF:"
+                    placeholder="CPF (apenas números):"
                     placeholderTextColor="#94A3B8"
                     keyboardType="numeric"
                     onChangeText={setCpf}
@@ -119,34 +133,34 @@ export default function LoginScreen() {
                 <Ionicons name="lock-closed-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
                 <TextInput
                     style={styles.input}
-                    placeholder="Digite sua senha:"
+                    placeholder="Crie sua senha:"
                     placeholderTextColor="#94A3B8"
                     secureTextEntry
                     onChangeText={setPassword}
                     value={password}
                 />
             </View>
-
-            {/* ESQUECEU A SENHA */}
-            <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordButton}>
-                <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
-            </TouchableOpacity>
+            
+            {/* CONFIRMAR SENHA */}
+            <View style={styles.inputGroup}>
+                <Ionicons name="lock-open-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Confirme sua senha:"
+                    placeholderTextColor="#94A3B8"
+                    secureTextEntry
+                    onChangeText={setConfirmPassword}
+                    value={confirmPassword}
+                />
+            </View>
 
           </View>
 
-          {/* BOTÕES DE AÇÃO */}
+          {/* BOTÃO DE AÇÃO */}
           <View style={styles.actionButtonContainer}>
-            
-            <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
-                <Text style={styles.primaryButtonText}>Acessar</Text>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleCadastro}>
+                <Text style={styles.primaryButtonText}>Finalizar Cadastro</Text>
             </TouchableOpacity>
-
-            <Text style={styles.orText}>OU</Text>
-
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleNavigateToCadastro}>
-                <Text style={styles.secondaryButtonText}>Primeiro Acesso</Text>
-            </TouchableOpacity>
-
           </View>
         </ScrollView>
         
@@ -163,7 +177,7 @@ export default function LoginScreen() {
 }
 
 
-// --- STYLESHEET ---
+// --- STYLESHEET (Reutilizado do Login para Consistência) ---
 const styles = StyleSheet.create({
   background: {
     flex: 1,
@@ -213,6 +227,7 @@ const styles = StyleSheet.create({
   scrollContainer: {
     padding: scaleSize(25),
     alignItems: 'center',
+    flexGrow: 1,
   } as ViewStyle,
 
   mainTitle: {
@@ -228,7 +243,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    backgroundColor: 'rgba(239, 68, 68, 0.2)', // Vermelho claro
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
     padding: scaleSize(12),
     borderRadius: scaleSize(8),
     marginBottom: scaleSize(20),
@@ -267,13 +282,6 @@ const styles = StyleSheet.create({
     fontSize: scaleFont(16),
     height: '100%',
   } as TextStyle,
-  forgotPasswordButton: {
-    alignSelf: 'flex-end',
-  } as ViewStyle,
-  forgotPasswordText: {
-    color: '#94A3B8',
-    fontSize: scaleFont(14),
-  } as TextStyle,
 
   // BOTÕES DE AÇÃO
   actionButtonContainer: {
@@ -287,31 +295,11 @@ const styles = StyleSheet.create({
     borderRadius: scaleSize(10),
     width: '100%',
     alignItems: 'center',
-    marginBottom: scaleSize(15),
   } as ViewStyle,
   primaryButtonText: {
     color: '#0F172A',
     fontSize: scaleFont(20),
     fontWeight: 'bold',
-  } as TextStyle,
-  orText: {
-    color: '#94A3B8',
-    fontSize: scaleFont(16),
-    marginBottom: scaleSize(15),
-  } as TextStyle,
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#94A3B8',
-    paddingVertical: scaleSize(16),
-    borderRadius: scaleSize(10),
-    width: '100%',
-    alignItems: 'center',
-  } as ViewStyle,
-  secondaryButtonText: {
-    color: '#E2E8F0',
-    fontSize: scaleFont(20),
-    fontWeight: '600',
   } as TextStyle,
   
   // RODAPÉ

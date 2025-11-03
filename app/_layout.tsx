@@ -28,18 +28,34 @@ export default function RootLayout() {
           }} 
         />
         
-        {/* 2. ROTA DA LISTAGEM DE EXERCÍCIOS (Nova tela fora das tabs) */}
+        {/* 2. ROTA DE LOGIN */}
         <Stack.Screen 
-          name="exercise-list" // <-- CRÍTICO: Rota para app/exercise-list.tsx
+          name="login" // CRÍTICO: Rota para app/login.tsx
+          options={{ 
+            headerShown: false, 
+          }} 
+        />
+        
+        {/* 3. ROTA DE CADASTRO */}
+        <Stack.Screen 
+          name="cadastro" // CRÍTICO: Rota para app/cadastro.tsx
+          options={{ 
+            headerShown: false, 
+          }} 
+        />
+        
+        {/* 4. ROTA DA LISTAGEM DE EXERCÍCIOS */}
+        <Stack.Screen 
+          name="exercise-list" 
           options={{ 
             headerShown: false, 
           }} 
         />
 
-        {/* 3. ROTAS PÓS-LOGIN: O GRUPO DE ABAS */}
+        {/* 5. ROTAS PÓS-LOGIN: O GRUPO DE ABAS */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         
-        {/* 4. Rota de Erro */}
+        {/* 6. Rota de Erro */}
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
