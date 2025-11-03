@@ -12,16 +12,17 @@ import {
   Platform,
   Linking,
   Alert,
+  ImageBackground, // Importado para o fundo de academia
   // Importando os tipos para evitar erros de TypeScript
   ViewStyle, 
   TextStyle, 
   ImageStyle,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-// 🛑 CORREÇÃO 1: Ajuste no caminho de importação (de volta duas pastas para a raiz/constants)
+// Importação do arquivo de dados (ATENÇÃO: Mantenha o caminho correto!)
 import { EXERCISE_DATA, MuscleGroup, Exercise } from '../constants/exercises'; 
 
-// --- CONSTANTES DE ESCALA RESPONSIVA (Baseado no seu setup) ---
+// --- CONSTANTES DE ESCALA RESPONSIVA ---
 const { width } = Dimensions.get('window');
 const DESIGN_WIDTH = 375;
 const DESIGN_HEIGHT = 812;
@@ -31,6 +32,9 @@ const scale = Math.min(scaleW, scaleH);
 
 const scaleSize = (size: number) => Math.round(size * scale);
 const scaleFont = (size: number) => size * Math.min(scaleW, 1.15);
+
+// Importe o asset do fundo (Caminho corrigido)
+const FundoAcademia = require('../assets/images/gym_background.jpg');
 
 
 // --- COMPONENTE DE BOTÕES DOS DIAS DA SEMANA ---
@@ -71,7 +75,6 @@ const ExerciseItem: React.FC<ExerciseItemProps> = ({ item, onAdd }) => {
         if (supported) {
             await Linking.openURL(url);
         } else {
-            // Em projetos Reais: Usar um Modal Customizado, não Alert
             Alert.alert(`Erro`, `Não foi possível abrir o link: ${url}`);
         }
     };
@@ -94,8 +97,6 @@ const ExerciseItem: React.FC<ExerciseItemProps> = ({ item, onAdd }) => {
                 <TouchableOpacity onPress={handleOpenVideo} style={listStyles.videoButton}>
                     <Ionicons name="play-circle" size={scaleSize(28)} color="#22C55E" />
                 </TouchableOpacity>
-                {/* O botão de adição só faz sentido se o dia estiver selecionado, 
-                   mas mantemos ele aqui para o clique de debug */}
                 <TouchableOpacity onPress={() => onAdd(item)} style={listStyles.addButton}>
                     <Feather name="plus-circle" size={scaleSize(24)} color="#E2E8F0" />
                 </TouchableOpacity>
@@ -110,7 +111,6 @@ export default function ExerciseListScreen() {
     const router = useRouter();
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-    // 🛑 CORREÇÃO 2: Tipando 'group' explicitamente
     const sections = EXERCISE_DATA.map((group: MuscleGroup) => ({
         title: group.groupName,
         data: group.exercises
@@ -135,7 +135,7 @@ export default function ExerciseListScreen() {
         </View>
     );
     
-    // Footer customizado com os botões de dia
+    // Footer customizado com os botões de dia (Apoio na imagem)
     const renderFooter = () => (
         <View style={listStyles.footerContainer}>
             
@@ -151,27 +151,33 @@ export default function ExerciseListScreen() {
 
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="light-content" />
-            
-            <View style={styles.container}>
-                {renderHeader()}
+        <ImageBackground
+            source={FundoAcademia}
+            style={styles.background as ViewStyle}
+            imageStyle={styles.bgImage as ImageStyle}
+        >
+            <SafeAreaView style={styles.safeArea}>
+                <StatusBar barStyle="light-content" />
                 
-                <SectionList
-                    sections={sections}
-                    keyExtractor={(item, index) => item.name + index}
-                    renderItem={({ item }) => <ExerciseItem item={item} onAdd={handleAddExerciseToTraining} />}
-                    renderSectionHeader={({ section: { title } }) => (
-                        <Text style={listStyles.sectionHeader}>{title}</Text>
-                    )}
-                    stickySectionHeadersEnabled={false}
-                    style={styles.list}
-                    contentContainerStyle={styles.listContent}
-                    ListFooterComponent={renderFooter()} // Rodapé com os botões de dia
-                />
-            </View>
-            
-        </SafeAreaView>
+                <View style={styles.container}>
+                    {renderHeader()}
+                    
+                    <SectionList
+                        sections={sections}
+                        keyExtractor={(item, index) => item.name + index}
+                        renderItem={({ item }) => <ExerciseItem item={item} onAdd={handleAddExerciseToTraining} />}
+                        renderSectionHeader={({ section: { title } }) => (
+                            <Text style={listStyles.sectionHeader}>{title}</Text>
+                        )}
+                        stickySectionHeadersEnabled={false}
+                        style={styles.list}
+                        contentContainerStyle={styles.listContent}
+                        ListFooterComponent={renderFooter()}
+                    />
+                </View>
+                
+            </SafeAreaView>
+        </ImageBackground>
     );
 }
 
@@ -189,8 +195,8 @@ const dayStyles = StyleSheet.create({
         width: scaleSize(35),
         height: scaleSize(35),
         borderRadius: scaleSize(17.5),
-        borderWidth: 1.5,
-        borderColor: '#22C55E',
+        borderWidth: 2,
+        borderColor: '#E2E8F0', // Borda branca/clara para consistência
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: 'transparent',
@@ -215,9 +221,10 @@ const listStyles = StyleSheet.create({
         justifyContent: 'flex-start',
         paddingHorizontal: scaleSize(20),
         paddingVertical: scaleSize(15),
-        backgroundColor: '#0F172A',
+        // Fundo semi-transparente
+        backgroundColor: 'rgba(15, 23, 42, 0.85)', 
         borderBottomWidth: 1,
-        borderColor: '#1E293B',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     } as ViewStyle,
     backButton: {
         paddingRight: scaleSize(15),
@@ -232,7 +239,8 @@ const listStyles = StyleSheet.create({
         fontSize: scaleFont(20),
         fontWeight: 'bold',
         color: '#E2E8F0',
-        backgroundColor: '#1E293B', // Fundo mais escuro para o cabeçalho de seção
+        // Fundo mais claro e semi-transparente para o cabeçalho de seção
+        backgroundColor: 'rgba(30, 41, 59, 0.9)', 
         paddingHorizontal: scaleSize(20),
         paddingVertical: scaleSize(10),
         borderTopWidth: 1,
@@ -248,9 +256,10 @@ const listStyles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: scaleSize(15),
         paddingHorizontal: scaleSize(20),
-        backgroundColor: '#0F172A', 
+        // Fundo muito transparente (fundo de academia visível)
+        backgroundColor: 'rgba(0, 0, 0, 0.4)', 
         borderBottomWidth: 1,
-        borderColor: '#1E293B', // Linha divisória
+        borderColor: 'rgba(255, 255, 255, 0.1)', // Linha divisória suave
     } as ViewStyle,
     col1: {
         width: '45%',
@@ -285,10 +294,11 @@ const listStyles = StyleSheet.create({
     footerContainer: {
         padding: scaleSize(20),
         paddingBottom: Platform.OS === 'web' ? scaleSize(20) : 0, 
-        backgroundColor: '#1E293B',
+        backgroundColor: 'rgba(30, 41, 59, 0.95)', // Fundo quase opaco para botões
         borderTopWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.2)',
         alignItems: 'center',
+        width: '100%',
     } as ViewStyle,
     fullWidthButton: {
         backgroundColor: 'transparent',
@@ -297,7 +307,7 @@ const listStyles = StyleSheet.create({
         width: '100%',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: '#E2E8F0', // Borda branca conforme a imagem
+        borderColor: '#E2E8F0', // Borda branca
     } as ViewStyle,
     footerTitleText: {
         color: '#E2E8F0',
@@ -311,15 +321,31 @@ const listStyles = StyleSheet.create({
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#0F172A',
+        backgroundColor: 'transparent', // O SafeAreaView agora é transparente para não cobrir o fundo
         paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0,
     } as ViewStyle,
+    background: {
+        flex: 1,
+        resizeMode: 'cover',
+        backgroundColor: '#000',
+        ...Platform.select({
+            web: {
+                height: '100vh' as any,
+                minHeight: '100vh' as any,
+            },
+        }),
+    } as ViewStyle,
+    bgImage: {
+        resizeMode: 'cover',
+        opacity: 0.25, // Transparência na imagem de fundo
+    } as ImageStyle,
     container: {
         flex: 1,
-        backgroundColor: '#0F172A',
+        backgroundColor: 'transparent', // Container também transparente
     } as ViewStyle,
     list: {
         flex: 1,
+        backgroundColor: 'transparent', // Lista transparente
     } as ViewStyle,
     listContent: {
         paddingBottom: scaleSize(20),
