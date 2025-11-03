@@ -1,5 +1,5 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ScrollView, 
   StatusBar, 
@@ -11,12 +11,17 @@ import {
   Dimensions, 
   Platform,
   TextInput,
+  Alert,
   // Importando os tipos
   ViewStyle, 
   TextStyle, 
   ImageStyle 
 } from 'react-native';
 import { useRouter } from 'expo-router'; 
+import { initFirebase, getCurrentUserProfileRef } from './firebase-config'; // Importa a config
+import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'; // Importa Auth
+import { setDoc } from 'firebase/firestore'; // Importa Firestore
+
 
 // --- CONSTANTES DE ESCALA RESPONSIVA ---
 const { width } = Dimensions.get('window');
@@ -36,33 +41,80 @@ const FundoAcademia = require('../assets/images/gym_background.jpg');
 export default function CadastroScreen() {
   const router = useRouter(); 
   const [name, setName] = useState('');
-  const [cpf, setCpf] = useState('');
+  const [cpf, setCpf] = useState(''); // Campo adicional
+  const [email, setEmail] = useState(''); // Requerido pelo Firebase Auth
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleCadastro = () => {
+  // Inicializa o Firebase ao carregar o componente
+  useEffect(() => {
+    initFirebase();
+  }, []);
+
+  const handleCadastro = async () => {
       setErrorMessage('');
+      setIsLoading(true);
 
-      // 1. Validação de Campos
-      if (!name || !cpf || !password || !confirmPassword) {
+      if (!name || !cpf || !email || !password || !confirmPassword) {
           setErrorMessage('Por favor, preencha todos os campos.');
+          setIsLoading(false);
           return;
+      }
+      if (password.length < 6) {
+        setErrorMessage('A senha deve ter pelo menos 6 caracteres.');
+        setIsLoading(false);
+        return;
       }
       if (password !== confirmPassword) {
           setErrorMessage('As senhas não coincidem.');
+          setIsLoading(false);
           return;
       }
       
-      // 2. Lógica de cadastro simulada (supondo sucesso aqui)
-      console.log(`Novo usuário cadastrado: ${name} (CPF: ${cpf})`);
-      
-      // 3. Redirecionamento após cadastro (geralmente para Home ou Login)
-      // Após o cadastro, levamos para a Home (simulando login automático)
-      router.replace('/(tabs)/home'); 
+      try {
+        const authInstance = getAuth(); 
+
+        // 1. CRIAÇÃO DO USUÁRIO NO FIREBASE AUTHENTICATION
+        const userCredential = await createUserWithEmailAndPassword(authInstance, email, password);
+        const user = userCredential.user;
+
+        // 2. SALVAR O PERFIL COMPLETO (CPF e Nome) NO FIRESTORE
+        if (user.uid) {
+            const userRef = getCurrentUserProfileRef(user.uid);
+            await setDoc(userRef, {
+                uid: user.uid,
+                name: name,
+                cpf: cpf,
+                email: email,
+                registrationDate: new Date().toISOString(),
+            });
+            
+            // 3. Atualiza o Nome de Exibição no Firebase Auth
+            await updateProfile(user, { displayName: name });
+        }
+
+        Alert.alert("Sucesso!", "Cadastro realizado com sucesso. Você será redirecionado para a Home.");
+
+        // 4. Redirecionamento após cadastro (Login automático)
+        router.replace('/(tabs)/home'); 
+
+      } catch (error: any) {
+        console.error("Erro no cadastro:", error.message);
+        
+        let msg = "Ocorreu um erro. Verifique sua conexão ou tente mais tarde.";
+        if (error.code === 'auth/email-already-in-use') {
+            msg = "Este e-mail já está em uso. Tente fazer login.";
+        } else if (error.code === 'auth/invalid-email') {
+            msg = "O formato do e-mail é inválido.";
+        }
+        setErrorMessage(msg);
+      } finally {
+        setIsLoading(false);
+      }
   };
 
-  // Navegação de volta para a tela anterior (login ou onboarding)
   const handleBack = () => {
       router.back();
   };
@@ -75,7 +127,6 @@ export default function CadastroScreen() {
     >
       <StatusBar barStyle="light-content" translucent />
       
-      {/* 1. CONTAINER PRINCIPAL: flex: 1 */}
       <View style={styles.overlay}>
         
         {/* CABEÇALHO CUSTOMIZADO COM VOLTAR */}
@@ -84,7 +135,7 @@ export default function CadastroScreen() {
                 <Ionicons name="arrow-back" size={scaleSize(24)} color="#E2E8F0" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Novo Cadastro</Text>
-            <View style={styles.backButton} /> {/* Espaçador */}
+            <View style={styles.backButton} />
         </View> 
 
         {/* CONTEÚDO PRINCIPAL (COM SCROLL) */}
@@ -112,6 +163,22 @@ export default function CadastroScreen() {
                     placeholderTextColor="#94A3B8"
                     onChangeText={setName}
                     value={name}
+                    editable={!isLoading}
+                />
+            </View>
+
+            {/* E-MAIL */}
+            <View style={styles.inputGroup}>
+                <Ionicons name="mail-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="E-mail:"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    onChangeText={setEmail}
+                    value={email}
+                    editable={!isLoading}
                 />
             </View>
 
@@ -125,6 +192,7 @@ export default function CadastroScreen() {
                     keyboardType="numeric"
                     onChangeText={setCpf}
                     value={cpf}
+                    editable={!isLoading}
                 />
             </View>
 
@@ -133,11 +201,12 @@ export default function CadastroScreen() {
                 <Ionicons name="lock-closed-outline" size={scaleSize(20)} color="#22C55E" style={styles.inputIcon} />
                 <TextInput
                     style={styles.input}
-                    placeholder="Crie sua senha:"
+                    placeholder="Crie sua senha (mín. 6 caracteres):"
                     placeholderTextColor="#94A3B8"
                     secureTextEntry
                     onChangeText={setPassword}
                     value={password}
+                    editable={!isLoading}
                 />
             </View>
             
@@ -151,6 +220,7 @@ export default function CadastroScreen() {
                     secureTextEntry
                     onChangeText={setConfirmPassword}
                     value={confirmPassword}
+                    editable={!isLoading}
                 />
             </View>
 
@@ -158,8 +228,8 @@ export default function CadastroScreen() {
 
           {/* BOTÃO DE AÇÃO */}
           <View style={styles.actionButtonContainer}>
-            <TouchableOpacity style={styles.primaryButton} onPress={handleCadastro}>
-                <Text style={styles.primaryButtonText}>Finalizar Cadastro</Text>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleCadastro} disabled={isLoading}>
+                <Text style={styles.primaryButtonText}>{isLoading ? 'CADASTRANDO...' : 'FINALIZAR CADASTRO'}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -295,6 +365,7 @@ const styles = StyleSheet.create({
     borderRadius: scaleSize(10),
     width: '100%',
     alignItems: 'center',
+    marginBottom: scaleSize(10),
   } as ViewStyle,
   primaryButtonText: {
     color: '#0F172A',
