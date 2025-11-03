@@ -1,7 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { 
-  SafeAreaView, 
   ScrollView, 
   StatusBar, 
   StyleSheet, 
@@ -12,6 +11,7 @@ import {
   Dimensions, 
   Image, 
   Platform,
+  // Tipos para evitar erros de TypeScript
   ViewStyle, 
   TextStyle, 
   ImageStyle 
@@ -38,6 +38,7 @@ function HeaderBar() {
   const handleMenuPress = () => console.log('Abrir Menu Lateral');
   const handleProfilePress = () => console.log('Abrir Perfil');
   
+  // CRÍTICO: Removemos o SafeAreaView e View interna para simplificar o layout
   return (
     <View style={styles.header}> 
       <TouchableOpacity onPress={handleMenuPress} style={styles.menuButton}>
@@ -217,6 +218,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: scaleSize(18),
+    // REMOVEMOS O SAFEAREADVIEW DO COMPONENTE, ENTÃO O PADDING TOP DEVE SER REAJUSTADO
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || scaleSize(40)) : scaleSize(40),
     paddingBottom: scaleSize(12),
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
