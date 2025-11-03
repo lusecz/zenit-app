@@ -1,6 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { 
+  SafeAreaView, 
   ScrollView, 
   StatusBar, 
   StyleSheet, 
@@ -11,13 +12,11 @@ import {
   Dimensions, 
   Image, 
   Platform,
-  // Tipos para evitar erros do TypeScript
   ViewStyle, 
   TextStyle, 
   ImageStyle 
 } from 'react-native';
 import { useRouter } from 'expo-router'; 
-
 
 // --- CONSTANTES DE ESCALA RESPONSIVA ---
 const { width, height } = Dimensions.get('window');
@@ -34,26 +33,22 @@ const FundoAcademia = require('../../assets/images/gym_background.jpg');
 const Logo = require('../../assets/images/zenit_logo.png');
 
 
-// --- COMPONENTE DE CABEÇALHO FIXO (SEM SAFEAREADVIEW) ---
+// --- COMPONENTE DE CABEÇALHO FIXO ---
 function HeaderBar() {
   const handleMenuPress = () => console.log('Abrir Menu Lateral');
   const handleProfilePress = () => console.log('Abrir Perfil');
   
-  // 🛑 ALTERAÇÃO CRÍTICA: Removido o SafeAreaView daqui
   return (
     <View style={styles.header}> 
-      {/* ÍCONE DO MENU (Esquerda) */}
       <TouchableOpacity onPress={handleMenuPress} style={styles.menuButton}>
         <Feather name="menu" size={scaleSize(22)} color="#fff" />
       </TouchableOpacity>
       
-      {/* NOME E LOGO CENTRALIZADOS */}
       <View style={styles.headerTitleContainer}>
         <Image source={Logo} style={styles.headerLogo} resizeMode="contain" />
         <Text style={styles.headerText}>ZenitApp</Text>
       </View>
       
-      {/* Ícone de Perfil (Direita) */}
       <TouchableOpacity onPress={handleProfilePress} style={styles.menuButton}>
         <Ionicons name="person-circle-outline" size={scaleSize(26)} color="#fff" />
       </TouchableOpacity>
@@ -61,7 +56,7 @@ function HeaderBar() {
   );
 }
 
-// --- COMPONENTE: BOTÕES DOS DIAS DA SEMANA (Mantido) ---
+// --- COMPONENTE: BOTÕES DOS DIAS DA SEMANA ---
 const diasDaSemana = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 const DayButtons = () => {
     return (
@@ -87,7 +82,6 @@ export default function HomeScreen() {
   const router = useRouter(); 
   
   const handleNavigateToExercises = () => {
-    console.log('Navegando para Listagem de Exercícios...');
     router.push('/exercise-list'); 
   };
 
@@ -99,13 +93,13 @@ export default function HomeScreen() {
     >
       <StatusBar barStyle="light-content" translucent />
       
-      {/* O overlay é o container principal */}
+      {/* 1. CONTAINER PRINCIPAL: flex: 1 e justifyContent: 'space-between' */}
       <View style={styles.overlay}>
         
-        {/* CABEÇALHO FIXO (Fica no topo) */}
+        {/* 2. CABEÇALHO FIXO */}
         <HeaderBar /> 
         
-        {/* CONTEÚDO PRINCIPAL (COM SCROLL) */}
+        {/* 3. CONTEÚDO PRINCIPAL (COM SCROLL) */}
         <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollFlex}>
           
           <View style={styles.section}>
@@ -147,6 +141,13 @@ export default function HomeScreen() {
 
         </ScrollView>
         
+        {/* 4. RODAPÉ FIXO (Customizado) */}
+        <View style={styles.footer}>
+            <Text style={styles.footerText}>
+                © 2025 ZenitApp. Todos os direitos reservados.
+            </Text>
+        </View>
+
       </View>
     </ImageBackground>
   );
@@ -206,6 +207,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)', 
+    justifyContent: 'space-between', // CRÍTICO: Garante Header e Footer fixos
   } as ViewStyle,
 
   // HEADER BAR (Fixo no topo)
@@ -215,8 +217,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: scaleSize(18),
-    // 🛑 AJUSTE: Removemos o paddingTop do HeaderBar e o delegamos para o StatusBar, que é mais preciso
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || scaleSize(40)) : scaleSize(40), 
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || scaleSize(40)) : scaleSize(40),
     paddingBottom: scaleSize(12),
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderBottomWidth: 1,
@@ -245,12 +246,12 @@ const styles = StyleSheet.create({
   
   // SCROLL CONTAINER FLEXÍVEL 
   scrollFlex: {
-      flex: 1,
+      flex: 1, // CRÍTICO: Ocupa o espaço restante
   } as ViewStyle,
   scrollContainer: {
     padding: scaleSize(20),
     paddingTop: scaleSize(10),
-    paddingBottom: scaleSize(100), 
+    paddingBottom: scaleSize(20), // Padding menor, já que o footer não está na rolagem
     alignItems: 'flex-start',
   } as ViewStyle,
   section: {
@@ -298,6 +299,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
 
+  // RODAPÉ FIXO
   footer: {
     width: '100%',
     alignItems: 'center',

@@ -13,13 +13,12 @@ import {
   Linking,
   Alert,
   ImageBackground,
-  // Importando os tipos para evitar erros de TypeScript
   ViewStyle, 
   TextStyle, 
   ImageStyle,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-// ATENÇÃO: Verifique o caminho de importação (Se exercises.ts está em constants/)
+// Importando os dados de exercícios (caminho corrigido para a pasta 'constants')
 import { EXERCISE_DATA, MuscleGroup, Exercise } from '../constants/exercises'; 
 
 // --- CONSTANTES DE ESCALA RESPONSIVA ---
@@ -148,7 +147,7 @@ export default function ExerciseListScreen() {
             <Text style={listStyles.mainTitle}>Listagem de Exercícios</Text>
         </View>
     );
-
+    
 
     return (
         <ImageBackground
@@ -156,12 +155,15 @@ export default function ExerciseListScreen() {
             style={styles.background as ViewStyle}
             imageStyle={styles.bgImage as ImageStyle}
         >
+            {/* CONTAINER PRINCIPAL: flex: 1, usa space-between para fixar o footer */}
             <SafeAreaView style={styles.safeArea}>
                 <StatusBar barStyle="light-content" />
                 
+                {/* 1. CABEÇALHO CUSTOMIZADO */}
+                {renderHeader()}
+                
+                {/* 2. CONTEÚDO SCROLLÁVEL (Preenche o espaço) */}
                 <View style={styles.container}>
-                    {renderHeader()}
-                    
                     <SectionList
                         sections={sections}
                         keyExtractor={(item, index) => item.name + index}
@@ -172,13 +174,20 @@ export default function ExerciseListScreen() {
                         stickySectionHeadersEnabled={false}
                         style={styles.list}
                         contentContainerStyle={styles.listContent}
-                        // CRÍTICO: Usa o novo componente SelectionHeader no ListHeaderComponent
+                        // CRÍTICO: Usa o SelectionHeader no ListHeaderComponent
                         ListHeaderComponent={
                             <SelectionHeader selectedDay={selectedDay} setSelectedDay={setSelectedDay} />
                         }
                     />
                 </View>
                 
+                {/* 3. RODAPÉ FIXO (DE DIREITOS AUTORAIS) */}
+                <View style={styles.footer}>
+                    <Text style={styles.footerText}>
+                        © 2025 ZenitApp. Todos os direitos reservados.
+                    </Text>
+                </View>
+
             </SafeAreaView>
         </ImageBackground>
     );
@@ -224,7 +233,7 @@ const listStyles = StyleSheet.create({
         justifyContent: 'flex-start',
         paddingHorizontal: scaleSize(20),
         paddingVertical: scaleSize(15),
-        backgroundColor: 'rgba(15, 23, 42, 0.85)', 
+        backgroundColor: 'rgba(15, 23, 42, 0.85)',
         borderBottomWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
     } as ViewStyle,
@@ -236,7 +245,7 @@ const listStyles = StyleSheet.create({
         fontSize: scaleFont(24),
         fontWeight: 'bold',
     } as TextStyle,
-    
+
     // NOVO ESTILO: Container para o cabeçalho de seleção
     selectionHeaderContainer: {
         padding: scaleSize(20),
@@ -321,7 +330,7 @@ const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
         backgroundColor: 'transparent',
-        paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0,
+        // Removido paddingTop aqui, pois o HeaderBar customizado já trata disso
     } as ViewStyle,
     background: {
         flex: 1,
@@ -341,6 +350,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'transparent',
+        justifyContent: 'space-between', // CRÍTICO: Para fixar o footer
     } as ViewStyle,
     list: {
         flex: 1,
@@ -349,4 +359,19 @@ const styles = StyleSheet.create({
     listContent: {
         paddingBottom: scaleSize(20),
     } as ViewStyle,
+    footer: {
+        width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: scaleSize(15),
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        borderTopWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+        flexShrink: 0, 
+    } as ViewStyle,
+    footerText: {
+        color: '#94A3B8',
+        fontSize: scaleFont(12),
+        textAlign: 'center',
+    } as TextStyle,
 });
