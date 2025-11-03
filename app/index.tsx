@@ -1,18 +1,18 @@
+import { useNavigation } from 'expo-router';
 import React from 'react';
 import {
-  View,
-  Text,
-  ImageBackground,
-  StyleSheet,
-  TouchableOpacity,
-  StatusBar,
   Dimensions,
   Image,
-  ScrollView
+  ImageBackground,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { useNavigation } from 'expo-router';
 
-const FundoAcademia = require('../assets/images/gym_background.jpg');
+const FundoAcademia = require('../assets/images/gym_background.jpeg');
 const Logo = require('../assets/images/zenit_logo.png');
 
 export default function WelcomeScreen() {
