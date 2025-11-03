@@ -4,6 +4,9 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
+// Contextos do seu colega (BBLBruno)
+import { RoutineProvider } from '@/context/RoutineContext';
+import { WorkoutProvider } from '@/context/WorkoutContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function RootLayout() {
@@ -17,48 +20,53 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        
-        {/* 1. ROTA PRINCIPAL: Tela de Boas-Vindas */}
-        <Stack.Screen 
-          name="index" 
-          options={{ 
-            headerShown: false, 
-          }} 
-        />
-        
-        {/* 2. ROTA DE LOGIN */}
-        <Stack.Screen 
-          name="login" // CRÍTICO: Rota para app/login.tsx
-          options={{ 
-            headerShown: false, 
-          }} 
-        />
-        
-        {/* 3. ROTA DE CADASTRO */}
-        <Stack.Screen 
-          name="cadastro" // CRÍTICO: Rota para app/cadastro.tsx
-          options={{ 
-            headerShown: false, 
-          }} 
-        />
-        
-        {/* 4. ROTA DA LISTAGEM DE EXERCÍCIOS */}
-        <Stack.Screen 
-          name="exercise-list" 
-          options={{ 
-            headerShown: false, 
-          }} 
-        />
+    // RESOLUÇÃO: Envolver o ThemeProvider com os Provedores de Contexto dele
+    <RoutineProvider>
+      <WorkoutProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            
+            {/* 1. ROTA PRINCIPAL: Tela de Boas-Vindas */}
+            <Stack.Screen 
+              name="index" 
+              options={{ 
+                headerShown: false, 
+              }} 
+            />
+            
+            {/* 2. ROTA DE LOGIN */}
+            <Stack.Screen 
+              name="login"
+              options={{ 
+                headerShown: false, 
+              }} 
+            />
+            
+            {/* 3. ROTA DE CADASTRO */}
+            <Stack.Screen 
+              name="cadastro"
+              options={{ 
+                headerShown: false, 
+              }} 
+            />
+            
+            {/* 4. ROTA DA LISTAGEM DE EXERCÍCIOS */}
+            <Stack.Screen 
+              name="exercise-list" 
+              options={{ 
+                headerShown: false, 
+              }} 
+            />
 
-        {/* 5. ROTAS PÓS-LOGIN: O GRUPO DE ABAS */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        
-        {/* 6. Rota de Erro */}
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+            {/* 5. ROTAS PÓS-LOGIN: O GRUPO DE ABAS */}
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            
+            {/* 6. Rota de Erro */}
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </WorkoutProvider>
+    </RoutineProvider>
   );
 }

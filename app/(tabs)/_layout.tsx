@@ -12,9 +12,28 @@ export default function TabsStackLayout() {
           headerShown: false, // CRÍTICO: Garante que o cabeçalho Stack seja invisível
         }}
       />
+<<<<<<< HEAD
       {/* Adicione outras rotas aqui conforme necessário, se tiver 'explore.tsx' */}
       {/* <Stack.Screen name="explore" options={{ headerShown: false, title: '' }} /> */}
       
     </Stack>
+=======
+      <Tabs.Screen
+        name="routines"
+        options={{
+          title: 'Rotinas',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="dumbbell.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen name="workouts" options={{ href: null }} />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          title: 'Explore',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+        }}
+      />
+    </Tabs>
+>>>>>>> origin/feat/exercicios-timer-sdk54
   );
 }
