@@ -4,6 +4,8 @@ import { Stack } from 'expo-router'; // Stack é o seu Navigator
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
+import { RoutineProvider } from '@/context/RoutineContext';
+import { WorkoutProvider } from '@/context/WorkoutContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function RootLayout() {
@@ -18,23 +20,16 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        {/* 1. NOVA TELA DE ENTRADA: DEVE SER A PRIMEIRA NA PILHA */}
-        <Stack.Screen 
-          name="welcome" // Corresponde ao arquivo 'app/welcome.tsx'
-          options={{ 
-            headerShown: false, // Oculta a barra de navegação padrão
-          }} 
-        />
-        
-        {/* 2. ROTAS PÓS-LOGIN: O GRUPO DE ABAS */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        
-        {/* 3. Rota de Erro */}
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <RoutineProvider>
+      <WorkoutProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </WorkoutProvider>
+    </RoutineProvider>
   );
 }
