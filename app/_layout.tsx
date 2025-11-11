@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 
 import { RoutineProvider } from '@/context/RoutineContext';
 import { WorkoutProvider } from '@/context/WorkoutContext';
+import { WorkoutHistoryProvider } from '@/context/WorkoutHistoryContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function RootLayout() {
@@ -22,13 +23,17 @@ export default function RootLayout() {
   return (
     <RoutineProvider>
       <WorkoutProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="auto" />
-        </ThemeProvider>
+        <WorkoutHistoryProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="edit-routine" options={{ headerShown: false }} />
+              <Stack.Screen name="execute-workout" options={{ headerShown: false }} />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </WorkoutHistoryProvider>
       </WorkoutProvider>
     </RoutineProvider>
   );
