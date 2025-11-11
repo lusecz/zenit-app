@@ -2,9 +2,10 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { RoutineContext } from '@/context/RoutineContext';
 import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useContext, useState } from 'react';
 import {
+  Alert,
   Button,
   FlatList,
   Modal,
@@ -55,6 +56,29 @@ export default function RoutinesScreen() {
     setModalVisible(true);
   };
 
+  const handleDeleteRoutine = (routineId: string, routineName: string) => {
+    Alert.alert(
+      'Deletar Rotina',
+      `Tem certeza que deseja deletar "${routineName}"? Esta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Deletar',
+          style: 'destructive',
+          onPress: () => removeRoutine(routineId),
+        },
+      ]
+    );
+  };
+
+  const handleEditRoutine = (routineId: string) => {
+    router.push(`/edit-routine?routineId=${routineId}` as any);
+  };
+
+  const handleExecuteRoutine = (routineId: string) => {
+    router.push(`/execute-workout?routineId=${routineId}` as any);
+  };
+
   if (loading) {
     return (
       <ThemedView style={styles.container}>
@@ -75,17 +99,31 @@ export default function RoutinesScreen() {
         contentContainerStyle={styles.content}
         renderItem={({ item }) => (
           <View style={styles.routineItemContainer}>
-            <Link href={{ pathname: '/workouts', params: { routineId: item.id } }} asChild>
-              <TouchableOpacity style={styles.routineNameContainer}>
-                <Text style={styles.routineName}>{item.name}</Text>
-              </TouchableOpacity>
-            </Link>
+            <View style={styles.routineHeader}>
+              <Text style={styles.routineName}>{item.name}</Text>
+              <View style={styles.routineHeaderActions}>
+                <TouchableOpacity onPress={() => openEditModal(item)}>
+                  <Ionicons name="create-outline" size={24} color="#94A3B8" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDeleteRoutine(item.id, item.name)}>
+                  <Ionicons name="trash-outline" size={24} color="#F43F5E" />
+                </TouchableOpacity>
+              </View>
+            </View>
             <View style={styles.routineActions}>
-              <TouchableOpacity onPress={() => openEditModal(item)}>
-                <Ionicons name="pencil" size={28} color="#94A3B8" />
+              <TouchableOpacity
+                style={[styles.actionButton, styles.editButton]}
+                onPress={() => handleEditRoutine(item.id)}>
+                <Ionicons name="settings-outline" size={20} color="#64748B" />
+                <Text style={styles.actionButtonText}>Editar Exercícios</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => removeRoutine(item.id)}>
-                <Ionicons name="trash" size={28} color="#F43F5E" />
+              <TouchableOpacity
+                style={[styles.actionButton, styles.executeButton]}
+                onPress={() => handleExecuteRoutine(item.id)}>
+                <Ionicons name="play-circle" size={20} color="#22C55E" />
+                <Text style={[styles.actionButtonText, styles.executeButtonText]}>
+                  Iniciar Treino
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -152,22 +190,52 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 15,
     marginBottom: 15,
+  },
+  routineHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  routineNameContainer: {
-    flex: 1,
+  routineHeaderActions: {
+    flexDirection: 'row',
+    gap: 12,
   },
   routineName: {
     color: '#E2E8F0',
     fontSize: 18,
     fontWeight: 'bold',
+    flex: 1,
   },
   routineActions: {
     flexDirection: 'row',
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    gap: 6,
+  },
+  editButton: {
+    backgroundColor: '#334155',
+  },
+  executeButton: {
+    backgroundColor: '#064E3B',
+    borderWidth: 1,
+    borderColor: '#22C55E',
+  },
+  actionButtonText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  executeButtonText: {
+    color: '#22C55E',
   },
   fab: {
     position: 'absolute',
