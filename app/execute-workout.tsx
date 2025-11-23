@@ -1,583 +1,386 @@
-import { RoutineContext } from '@/context/RoutineContext';
-import { WorkoutHistoryContext } from '@/context/WorkoutHistoryContext';
-import { Ionicons } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+// app/(tabs)/execute-workout.tsx
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  Vibration,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { RoutineContext } from '@/context/RoutineContext';
+import Toast from '@/components/Toast';
+import { Ionicons } from '@expo/vector-icons';
+import { sanitizeNumber } from '@/helpers/validators';
 
-// Configuração das notificações
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+const { width } = Dimensions.get('window');
 
 export default function ExecuteWorkoutScreen() {
-  const { routineId } = useLocalSearchParams<{ routineId: string }>();
-  const { getRoutine } = useContext(RoutineContext);
-  const { currentSession, startWorkoutSession, finishWorkoutSession, updateCurrentSession } =
-    useContext(WorkoutHistoryContext);
+  const { routineId } = useLocalSearchParams<{ routineId?: string }>();
+  const router = useRouter();
+  const { getRoutine, toggleSetCompletion, updateSet } = useContext(RoutineContext);
 
-  const routine = useMemo(() => getRoutine(routineId!), [routineId, getRoutine]);
+  const routine = useMemo(() => (routineId ? getRoutine(routineId) : undefined), [routineId, getRoutine]);
 
-  const [sessionExercises, setSessionExercises] = useState<any[]>([]);
-  const [startTime, setStartTime] = useState<Date>(new Date());
-  const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  const [activeTimers, setActiveTimers] = useState<Map<string, any>>(new Map());
-  const [activeNotifications, setActiveNotifications] = useState<Map<string, string>>(new Map());
+  const scrollRef = useRef<ScrollView | null>(null);
+  const [currentCardIndex, setCurrentCardIndex] = useState(0); // index of exercise card shown
+  const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [showToast, setShowToast] = useState(false);
 
-  // Configurar permissões de notificação
+  // Rest timer state
+  const [restVisible, setRestVisible] = useState(false);
+  const restTimerRef = useRef<NodeJS.Timeout | number | null>(null);
+  const [restSeconds, setRestSeconds] = useState<number>(0);
+
+  // hold session local copies so UI is responsive (we will still toggle via context for persistence)
+  // But we'll read from context each render (routine.exercises), so no separate local mirror needed.
+
   useEffect(() => {
-    const configurateNotifications = async () => {
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
-        });
+    // cleanup timer on unmount
+    return () => {
+      if (restTimerRef.current) {
+        // @ts-ignore
+        clearInterval(restTimerRef.current);
       }
-      await Notifications.requestPermissionsAsync();
     };
-    configurateNotifications();
   }, []);
 
-  // Iniciar sessão de treino apenas uma vez
-  useEffect(() => {
-    if (routine && routine.exercises && routine.exercises.length > 0) {
-      const exercisesWithSets = routine.exercises.map(ex => ({
-        ...ex,
-        sets: ex.sets && ex.sets.length > 0 
-          ? ex.sets.map((set: any) => ({ ...set, isCompleted: false }))
-          : [],
-      }));
-      
-      setSessionExercises(exercisesWithSets);
-      setStartTime(new Date());
-      
-      if (!currentSession) {
-        startWorkoutSession(routine.id, routine.name, exercisesWithSets);
-      }
-    }
-  }, [routine?.id]); // Dependência no ID para evitar loops
-
-  // Atualizar cronômetro
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Não usar useEffect para atualizar sessão - fazer manualmente quando necessário
-  // Para evitar loops infinitos, vamos atualizar apenas quando finalizar o treino
-
-  const showToastMessage = (message: string) => {
-    setToastMessage(message);
-    setShowToast(true);
-    setTimeout(() => {
-      setShowToast(false);
-    }, 3000);
-  };
-
-  const cancelRestTimer = (exerciseId: string) => {
-    const timer = activeTimers.get(exerciseId);
-    if (timer) {
-      clearTimeout(timer);
-      setActiveTimers(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(exerciseId);
-        return newMap;
-      });
-    }
-
-    const notificationId = activeNotifications.get(exerciseId);
-    if (notificationId) {
-      Notifications.cancelScheduledNotificationAsync(notificationId);
-      setActiveNotifications(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(exerciseId);
-        return newMap;
-      });
-    }
-  };
-
-  const showRestStartConfirmation = (exerciseName: string, restTime: number) => {
-    showToastMessage(`⏱️ Descanso de ${restTime}s iniciado para ${exerciseName}`);
-  };
-
-  const startRestTimer = async (exerciseId: string, exerciseName: string, restTime: number) => {
-    cancelRestTimer(exerciseId);
-    showRestStartConfirmation(exerciseName, restTime);
-
-    try {
-      const notificationId = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '🔔 Descanso Finalizado!',
-          body: `Tempo de descanso de ${restTime}s terminou. Próxima série de ${exerciseName}!`,
-          sound: true,
-          priority: Notifications.AndroidNotificationPriority.HIGH,
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: restTime,
-          repeats: false,
-        },
-      });
-
-      setActiveNotifications(prev => new Map(prev).set(exerciseId, notificationId));
-    } catch (error) {
-      console.error('Erro ao agendar notificação:', error);
-    }
-  };
-
-  const handleSetCompletion = async (exerciseId: string, setId: string) => {
-    const exerciseIndex = sessionExercises.findIndex(ex => ex.id === exerciseId);
-    if (exerciseIndex === -1) return;
-
-    const exercise = sessionExercises[exerciseIndex];
-    const setIndex = exercise.sets.findIndex((s: any) => s.id === setId);
-    if (setIndex === -1) return;
-
-    const set = exercise.sets[setIndex];
-    const isCurrentlyCompleted = set.isCompleted;
-
-    const newExercises = [...sessionExercises];
-    newExercises[exerciseIndex] = {
-      ...exercise,
-      sets: exercise.sets.map((s: any) =>
-        s.id === setId ? { ...s, isCompleted: !isCurrentlyCompleted } : s
-      ),
-    };
-
-    setSessionExercises(newExercises);
-
-    if (!isCurrentlyCompleted && exercise.restTime && exercise.restTime > 0) {
-      await startRestTimer(exerciseId, exercise.name, exercise.restTime);
-    }
-  };
-
-  const handleSetUpdate = (exerciseId: string, setId: string, field: 'reps' | 'weight', value: string) => {
-    const numValue = field === 'reps' ? parseInt(value) || 0 : parseFloat(value) || 0;
-
-    setSessionExercises(prev =>
-      prev.map(ex =>
-        ex.id === exerciseId
-          ? {
-              ...ex,
-              sets: ex.sets.map((s: any) =>
-                s.id === setId ? { ...s, [field]: numValue } : s
-              ),
-            }
-          : ex
-      )
-    );
-  };
-
-  const calculateStats = () => {
-    let totalVolume = 0;
-    let totalSetsCompleted = 0;
-
-    sessionExercises.forEach(exercise => {
-      exercise.sets.forEach((set: any) => {
-        if (set.isCompleted) {
-          totalVolume += set.weight * set.reps;
-          totalSetsCompleted += 1;
-        }
-      });
-    });
-
-    return { totalVolume, totalSetsCompleted };
-  };
-
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${secs}s`;
-    }
-    return `${minutes}m ${secs}s`;
-  };
-
-  const getDuration = () => {
-    return Math.floor((currentTime.getTime() - startTime.getTime()) / 1000);
-  };
-
-  const handleFinishWorkout = () => {
-    const stats = calculateStats();
-    const duration = getDuration();
-
-    Alert.alert(
-      'Finalizar Treino',
-      `Resumo do treino:\n\n` +
-        `⏱️ Duração: ${formatDuration(duration)}\n` +
-        `💪 Volume Total: ${stats.totalVolume.toFixed(1)} kg\n` +
-        `✅ Séries Completadas: ${stats.totalSetsCompleted}\n\n` +
-        `Deseja finalizar e salvar este treino?`,
-      [
-        { text: 'Continuar Treinando', style: 'cancel' },
-        {
-          text: 'Finalizar',
-          style: 'default',
-          onPress: () => {
-            // Atualizar sessão com os dados finais antes de salvar
-            updateCurrentSession(sessionExercises);
-            // Dar um pequeno delay para garantir que a atualização foi processada
-            setTimeout(() => {
-              finishWorkoutSession();
-              showToastMessage('🎉 Treino finalizado e salvo!');
-              setTimeout(() => {
-                router.back();
-              }, 1500);
-            }, 100);
-          },
-        },
-      ]
-    );
-  };
-
-  const handleCancelWorkout = () => {
-    Alert.alert(
-      'Cancelar Treino',
-      'Deseja realmente cancelar? O treino não será salvo.',
-      [
-        { text: 'Continuar Treinando', style: 'cancel' },
-        {
-          text: 'Cancelar Treino',
-          style: 'destructive',
-          onPress: () => router.back(),
-        },
-      ]
-    );
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 2500);
   };
 
   if (!routine) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>Rotina não encontrada</Text>
+        <Text style={styles.errorText}>Rotina não encontrada.</Text>
       </SafeAreaView>
     );
   }
 
-  const stats = calculateStats();
-  const duration = getDuration();
+  const exercises = routine.exercises || [];
+
+  const scrollToIndex = (index: number) => {
+    const x = Math.max(0, Math.min(index, exercises.length - 1)) * width;
+    scrollRef.current?.scrollTo({ x, animated: true });
+    setCurrentCardIndex(index);
+  };
+
+  const goNextCard = () => {
+    const next = Math.min(currentCardIndex + 1, exercises.length - 1);
+    scrollToIndex(next);
+  };
+
+  const goPrevCard = () => {
+    const prev = Math.max(currentCardIndex - 1, 0);
+    scrollToIndex(prev);
+  };
+
+  const onToggleSet = async (exerciseId: string, setId: string) => {
+    // Find exercise & set to determine restTime
+    const ex = exercises.find((e) => e.id === exerciseId);
+    if (!ex) return;
+
+    const setObj = ex.sets.find((s) => s.id === setId);
+    if (!setObj) return;
+
+    const wasCompleted = !!setObj.isCompleted;
+
+    // Toggle in context
+    toggleSetCompletion(routine.id, exerciseId, setId);
+
+    // If marking completed (was false -> now true), start rest timer
+    if (!wasCompleted && ex.restTime && ex.restTime > 0) {
+      startRest(ex.name, ex.restTime, exerciseId, setId);
+    } else if (wasCompleted) {
+      // If it was completed and user unmarks, cancel any running rest timer
+      cancelRest();
+      showToast('Série desmarcada');
+    }
+  };
+
+  const startRest = (exerciseName: string, seconds: number, exerciseId?: string, setId?: string) => {
+    cancelRest();
+    const sec = Math.max(0, Math.floor(isNaN(seconds) ? 0 : seconds));
+    setRestSeconds(sec);
+    setRestVisible(true);
+
+    // interval tick every 1s
+    // Using setInterval to allow countdown
+    // store id to ref for cancellation
+    restTimerRef.current = setInterval(() => {
+      setRestSeconds((prev) => {
+        const next = prev - 1;
+        if (next <= 0) {
+          // finish
+          cancelRest();
+          Vibration.vibrate(400);
+          showToast(`Descanso finalizado para ${exerciseName}`);
+          // advance to next set/exercise
+          advanceAfterRest(exerciseId!, setId!);
+          return 0;
+        }
+        return next;
+      });
+    }, 1000);
+  };
+
+  const cancelRest = () => {
+    if (restTimerRef.current) {
+      // @ts-ignore
+      clearInterval(restTimerRef.current);
+      restTimerRef.current = null;
+    }
+    setRestVisible(false);
+    setRestSeconds(0);
+  };
+
+  const advanceAfterRest = (exerciseId: string, setId: string) => {
+    // Try to focus next set in the same exercise; if last set, go to next exercise
+    const exIndex = exercises.findIndex((e) => e.id === exerciseId);
+    if (exIndex === -1) return;
+
+    const ex = exercises[exIndex];
+    const setIndex = ex.sets.findIndex((s) => s.id === setId);
+    // if there is a next set in same exercise -> do nothing (user can mark)
+    if (setIndex < ex.sets.length - 1) {
+      // Optionally you may auto-scroll down inside card; we won't change vertical content
+      return;
+    }
+
+    // else go to next exercise card
+    if (exIndex < exercises.length - 1) {
+      scrollToIndex(exIndex + 1);
+    } else {
+      // finished all exercises
+      showToast('Parabéns — Treino finalizado!');
+    }
+  };
+
+  const onUpdateSetNumber = (exerciseId: string, setId: string, reps: number | string, weight: number | string) => {
+    const safeReps = sanitizeNumber(reps, 0);
+    const safeWeight = sanitizeNumber(weight, 0);
+    updateSet(routine.id, exerciseId, setId, safeReps, safeWeight);
+  };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      {/* Compact Action Bar */}
-      <View style={styles.compactActionBar}>
-        <TouchableOpacity onPress={handleCancelWorkout} style={styles.compactCancelButton}>
-          <Ionicons name="close-circle" size={24} color="#F43F5E" />
-          <Text style={styles.compactCancelText}>Cancelar</Text>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+          <Ionicons name="arrow-back" size={22} color="#94a3b8" />
         </TouchableOpacity>
-        <Text style={styles.compactTitle}>{routine.name}</Text>
-        <TouchableOpacity onPress={handleFinishWorkout} style={styles.compactFinishButton}>
-          <Ionicons name="checkmark-circle" size={24} color="#22C55E" />
-          <Text style={styles.compactFinishText}>Finalizar</Text>
-        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>{routine.name}</Text>
+
+        <View style={{ width: 36 }} />
       </View>
 
-      {/* Stats Bar */}
-      <View style={styles.statsBar}>
-        <View style={styles.statItem}>
-          <Ionicons name="time-outline" size={20} color="#22C55E" />
-          <Text style={styles.statLabel}>Duração</Text>
-          <Text style={styles.statValue}>{formatDuration(duration)}</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Ionicons name="barbell-outline" size={20} color="#22C55E" />
-          <Text style={styles.statLabel}>Volume</Text>
-          <Text style={styles.statValue}>{stats.totalVolume.toFixed(0)} kg</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Ionicons name="checkmark-done-outline" size={20} color="#22C55E" />
-          <Text style={styles.statLabel}>Séries</Text>
-          <Text style={styles.statValue}>{stats.totalSetsCompleted}</Text>
-        </View>
-      </View>
+      {/* Scroll horizontal cards */}
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{}}
+        onMomentumScrollEnd={(ev) => {
+          const px = ev.nativeEvent.contentOffset.x;
+          const idx = Math.round(px / width);
+          setCurrentCardIndex(idx);
+        }}
+      >
+        {exercises.map((ex, exIndex) => (
+          <View key={ex.id} style={[styles.card, { width }]}>
+            <Text style={styles.exerciseName}>
+              {exIndex + 1}. {ex.name}
+            </Text>
 
-      <ScrollView style={styles.content}>
-        {sessionExercises.map((exercise, exerciseIndex) => (
-          <View key={exercise.id} style={styles.exerciseCard}>
-            {/* Nome do Exercício */}
-            <View style={styles.exerciseHeader}>
-              <Text style={styles.exerciseName}>
-                {exerciseIndex + 1}. {exercise.name}
+            <View style={styles.cardSub}>
+              <Text style={styles.subText}>Descanso padrão: {ex.restTime ?? 60}s</Text>
+              <Text style={styles.subText}>
+                Séries: {ex.sets.length} • Concluídas: {ex.sets.filter((s) => s.isCompleted).length}
               </Text>
-              {exercise.restTime > 0 && (
-                <View style={styles.restTimeBadge}>
-                  <Ionicons name="timer-outline" size={16} color="#22C55E" />
-                  <Text style={styles.restTimeText}>{exercise.restTime}s</Text>
-                </View>
-              )}
             </View>
 
-            {/* Cabeçalho das Séries */}
-            <View style={styles.setsHeader}>
-              <Text style={[styles.setsHeaderText, { flex: 0.8 }]}>SÉRIE</Text>
-              <Text style={[styles.setsHeaderText, { flex: 1 }]}>KG</Text>
-              <Text style={[styles.setsHeaderText, { flex: 1 }]}>REPS</Text>
-              <Text style={[styles.setsHeaderText, { flex: 0.6 }]}>✓</Text>
-            </View>
+            <View style={styles.setsContainer}>
+              {ex.sets.map((s, idx) => (
+                <View key={s.id} style={styles.setRow}>
+                  <TouchableOpacity
+                    onPress={() => onToggleSet(ex.id, s.id)}
+                    style={styles.checkButton}
+                  >
+                    <Ionicons
+                      name={s.isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={26}
+                      color={s.isCompleted ? '#22C55E' : '#94a3b8'}
+                    />
+                  </TouchableOpacity>
 
-            {/* Séries */}
-            {exercise.sets.map((set: any, setIndex: number) => (
-              <View key={set.id} style={styles.setRow}>
-                <Text style={[styles.setNumber, { flex: 0.8 }, set.isCompleted && styles.setTextCompleted]}>
-                  {setIndex + 1}
-                </Text>
-                <TextInput
-                  style={[styles.setInput, { flex: 1 }, set.isCompleted && styles.setTextCompleted]}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor="#475569"
-                  value={set.weight?.toString() || ''}
-                  onChangeText={(value) => handleSetUpdate(exercise.id, set.id, 'weight', value)}
-                  editable={!set.isCompleted}
-                />
-                <TextInput
-                  style={[styles.setInput, { flex: 1 }, set.isCompleted && styles.setTextCompleted]}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor="#475569"
-                  value={set.reps?.toString() || ''}
-                  onChangeText={(value) => handleSetUpdate(exercise.id, set.id, 'reps', value)}
-                  editable={!set.isCompleted}
-                />
-                <TouchableOpacity
-                  style={[styles.checkbox, { flex: 0.6 }]}
-                  onPress={() => handleSetCompletion(exercise.id, set.id)}>
-                  <Ionicons
-                    name={set.isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={28}
-                    color={set.isCompleted ? '#22C55E' : '#64748B'}
+                  <Text style={styles.setLabel}>{idx + 1}</Text>
+
+                  <TextInput
+                    keyboardType="numeric"
+                    defaultValue={String(s.weight ?? '')}
+                    onEndEditing={(e) =>
+                      onUpdateSetNumber(ex.id, s.id, s.reps, sanitizeNumber(e.nativeEvent.text, 0))
+                    }
+                    style={styles.setInput}
+                    placeholder="Kg"
+                    placeholderTextColor="#475569"
                   />
-                </TouchableOpacity>
-              </View>
-            ))}
+
+                  <TextInput
+                    keyboardType="numeric"
+                    defaultValue={String(s.reps ?? '')}
+                    onEndEditing={(e) =>
+                      onUpdateSetNumber(
+                        ex.id,
+                        s.id,
+                        sanitizeNumber(e.nativeEvent.text, 0),
+                        s.weight
+                      )
+                    }
+                    style={styles.setInput}
+                    placeholder="Reps"
+                    placeholderTextColor="#475569"
+                  />
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.cardFooter}>
+              <TouchableOpacity onPress={goPrevCard} style={styles.navBtn}>
+                <Ionicons name="chevron-back-circle" size={36} color="#94a3b8" />
+              </TouchableOpacity>
+
+              <Text style={styles.progressText}>
+                {exIndex + 1} / {exercises.length}
+              </Text>
+
+              <TouchableOpacity onPress={goNextCard} style={styles.navBtn}>
+                <Ionicons name="chevron-forward-circle" size={36} color="#22C55E" />
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
-
-        <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Toast */}
-      {showToast && (
-        <View style={styles.toast}>
-          <Text style={styles.toastText}>{toastMessage}</Text>
+      {/* Rest overlay */}
+      {restVisible && (
+        <View style={styles.restOverlay}>
+          <View style={styles.restBox}>
+            <Text style={styles.restTitle}>Descanso</Text>
+            <Text style={styles.restCounter}>{restSeconds}s</Text>
+            <TouchableOpacity
+              style={styles.skipBtn}
+              onPress={() => {
+                cancelRest();
+                showToast('Descanso pulado');
+                // Optionally advance to next card
+                goNextCard();
+              }}
+            >
+              <Text style={styles.skipText}>Pular descanso</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
+
+      {/* Toast */}
+      <Toast visible={toastVisible} message={toastMessage} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  compactActionBar: {
+  container: { flex: 1, backgroundColor: '#0F172A' },
+
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  compactCancelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: '#7F1D1D',
-    borderRadius: 20,
-  },
-  compactCancelText: {
-    color: '#F43F5E',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  compactTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#E2E8F0',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 12,
-  },
-  compactFinishButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: '#064E3B',
-    borderRadius: 20,
-  },
-  compactFinishText: {
-    color: '#22C55E',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  statsBar: {
-    flexDirection: 'row',
-    backgroundColor: '#0F172A',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 3,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#334155',
-    marginHorizontal: 6,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
-  statValue: {
-    fontSize: 15,
-    color: '#E2E8F0',
-    fontWeight: 'bold',
-  },
-  content: {
-    flex: 1,
     padding: 12,
+    borderBottomWidth: 0,
+    backgroundColor: '#0B1220',
   },
-  errorText: {
-    color: '#F43F5E',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 20,
+  headerBtn: { padding: 6 },
+  headerTitle: { color: '#22C55E', fontWeight: '700', fontSize: 18 },
+
+  card: {
+    padding: 18,
+    height: '100%',
   },
-  exerciseCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 12,
-  },
-  exerciseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  exerciseName: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#E2E8F0',
-    flex: 1,
-  },
-  restTimeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#064E3B',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  restTimeText: {
-    color: '#22C55E',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  setsHeader: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-    marginBottom: 8,
-  },
-  setsHeaderText: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
+
+  exerciseName: { color: '#E2E8F0', fontSize: 20, fontWeight: '700', marginBottom: 12 },
+
+  cardSub: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  subText: { color: '#94A3B8', fontSize: 13 },
+
+  setsContainer: { marginTop: 8 },
+
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
     gap: 8,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#0B1220',
   },
-  setNumber: {
-    color: '#94A3B8',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
+  checkButton: { paddingRight: 6 },
+  setLabel: { width: 36, color: '#94a3b8', textAlign: 'center' },
+
   setInput: {
-    backgroundColor: '#0F172A',
+    width: 88,
+    backgroundColor: '#071025',
     color: '#E2E8F0',
-    fontSize: 16,
-    padding: 10,
-    borderRadius: 6,
-    textAlign: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  setTextCompleted: {
-    textDecorationLine: 'line-through',
-    color: '#64748B',
-  },
-  checkbox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bottomSpacer: {
-    height: 20,
-  },
-  toast: {
-    position: 'absolute',
-    top: 100,
-    left: 20,
-    right: 20,
-    backgroundColor: '#1E293B',
-    padding: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#22C55E',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    marginRight: 8,
+    textAlign: 'center',
   },
-  toastText: {
-    color: '#E2E8F0',
-    fontSize: 14,
-    fontWeight: '600',
+
+  cardFooter: {
+    position: 'absolute',
+    bottom: 28,
+    left: 18,
+    right: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
+
+  navBtn: { padding: 8 },
+  progressText: { color: '#94a3b8' },
+
+  // rest overlay
+  restOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(2,6,23,0.6)',
+  },
+  restBox: {
+    width: '84%',
+    backgroundColor: '#071025',
+    padding: 22,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  restTitle: { color: '#E2E8F0', fontSize: 18, fontWeight: '700', marginBottom: 6 },
+  restCounter: { color: '#22C55E', fontSize: 36, fontWeight: '800', marginBottom: 12 },
+  skipBtn: {
+    backgroundColor: '#0B1220',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  skipText: { color: '#E2E8F0', fontWeight: '600' },
+
+  errorText: { color: '#F43F5E', padding: 16 },
 });

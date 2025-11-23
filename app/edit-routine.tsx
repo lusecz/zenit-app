@@ -1,522 +1,400 @@
-import { RoutineContext } from '@/context/RoutineContext';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
 import React, { useContext, useMemo, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import { RoutineContext } from '@/context/RoutineContext';
+import { isValidName, sanitizeNumber } from '@/helpers/validators';
+
+import Toast from '@/components/Toast';
+import { ConfirmModal } from '@/components/ConfirmModal';
+
+import { Ionicons } from '@expo/vector-icons';
 
 export default function EditRoutineScreen() {
-  const { routineId } = useLocalSearchParams<{ routineId: string }>();
+  const { routineId } = useLocalSearchParams<{ routineId?: string }>();
+  const router = useRouter();
+
   const {
     getRoutine,
     addExercise,
     updateExercise,
     removeExercise,
-    updateExerciseRestTime,
     addSet,
-    removeSet,
     updateSet,
+    removeSet,
+    updateExerciseRestTime
   } = useContext(RoutineContext);
 
-  const routine = useMemo(() => getRoutine(routineId!), [routineId, getRoutine]);
-  const exercises = routine?.exercises || [];
+  const routine = useMemo(
+    () => (routineId ? getRoutine(routineId) : undefined),
+    [routineId, getRoutine]
+  );
 
+  const [modalVisible, setModalVisible] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
-  const [isModalVisible, setModalVisible] = useState(false);
-  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
-  const [editingExerciseName, setEditingExerciseName] = useState('');
+  const [editingExercise, setEditingExercise] = useState<{ id: string; name: string } | null>(null);
 
-  const handleAddExercise = () => {
-    if (!routineId || !newExerciseName.trim()) return;
-    addExercise(routineId, newExerciseName.trim());
-    setNewExerciseName('');
-    setModalVisible(false);
-  };
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
-  const handleEditExerciseName = (exerciseId: string, currentName: string) => {
-    setEditingExerciseId(exerciseId);
-    setEditingExerciseName(currentName);
-  };
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [toDelete, setToDelete] = useState<{ kind: 'exercise' | 'set'; exId: string; setId?: string } | null>(null);
 
-  const handleSaveExerciseName = () => {
-    if (!routineId || !editingExerciseId || !editingExerciseName.trim()) return;
-    updateExercise(routineId, editingExerciseId, editingExerciseName.trim());
-    setEditingExerciseId(null);
-    setEditingExerciseName('');
-  };
-
-  const handleDeleteExercise = (exerciseId: string, exerciseName: string) => {
-    Alert.alert(
-      'Deletar Exercício',
-      `Tem certeza que deseja deletar "${exerciseName}"? Todas as séries serão perdidas.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Deletar',
-          style: 'destructive',
-          onPress: () => routineId && removeExercise(routineId, exerciseId),
-        },
-      ]
-    );
-  };
-
-  const handleDeleteSet = (exerciseId: string, setId: string, setNumber: number) => {
-    Alert.alert(
-      'Deletar Série',
-      `Tem certeza que deseja deletar a série ${setNumber}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Deletar',
-          style: 'destructive',
-          onPress: () => routineId && removeSet(routineId, exerciseId, setId),
-        },
-      ]
-    );
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 2500);
   };
 
   if (!routine) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>Rotina não encontrada</Text>
+        <Text style={styles.errorText}>Rotina não encontrada.</Text>
       </SafeAreaView>
     );
   }
 
+  // --------------------------------------------
+  // Add Exercise
+  // --------------------------------------------
+  const handleAddExercise = () => {
+    if (!isValidName(newExerciseName)) {
+      showToast('Nome inválido');
+      return;
+    }
+
+    const res = addExercise(routine.id, newExerciseName);
+
+    showToast(res.message);
+
+    if (res.success) {
+      setNewExerciseName('');
+      setModalVisible(false);
+    }
+  };
+
+  // --------------------------------------------
+  // Edit Exercise
+  // --------------------------------------------
+  const startEditExercise = (ex: any) => {
+    setEditingExercise(ex);
+    setNewExerciseName(ex.name);
+    setModalVisible(true);
+  };
+
+  const applyEditExercise = () => {
+    if (!editingExercise) return;
+    if (!isValidName(newExerciseName)) {
+      showToast('Nome inválido');
+      return;
+    }
+
+    const res = updateExercise(routine.id, editingExercise.id, newExerciseName);
+
+    showToast(res.message);
+
+    if (res.success) {
+      setModalVisible(false);
+      setEditingExercise(null);
+      setNewExerciseName('');
+    }
+  };
+
+  // --------------------------------------------
+  // Delete Confirmation
+  // --------------------------------------------
+  const confirmDeleteExercise = (exId: string) => {
+    setToDelete({ kind: 'exercise', exId });
+    setConfirmVisible(true);
+  };
+
+  const confirmDeleteSet = (exId: string, setId: string) => {
+    setToDelete({ kind: 'set', exId, setId });
+    setConfirmVisible(true);
+  };
+
+  const doDelete = () => {
+    if (!toDelete) return;
+
+    if (toDelete.kind === 'exercise') {
+      const res = removeExercise(routine.id, toDelete.exId);
+      showToast(res.message);
+    } else {
+      const res = removeSet(routine.id, toDelete.exId, toDelete.setId!);
+      showToast(res.message);
+    }
+
+    setConfirmVisible(false);
+    setToDelete(null);
+  };
+
+  // --------------------------------------------
+  // UI
+  // --------------------------------------------
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      {/* Action Bar */}
-      <View style={styles.compactActionBar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.compactCancelButton}>
-          <Ionicons name="arrow-back-circle" size={24} color="#94A3B8" />
-          <Text style={styles.compactCancelText}>Voltar</Text>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back-circle" size={28} color="#94a3b8" />
         </TouchableOpacity>
-        <Text style={styles.compactTitle}>{routine.name}</Text>
-        <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.compactFinishButton}>
-          <Ionicons name="add-circle" size={24} color="#22C55E" />
-          <Text style={styles.compactFinishText}>Adicionar</Text>
+
+        <Text style={styles.title}>{routine.name}</Text>
+
+        <TouchableOpacity onPress={() => setModalVisible(true)}>
+          <Ionicons name="add-circle" size={28} color="#22c55e" />
         </TouchableOpacity>
       </View>
 
+      {/* Conteúdo */}
       <ScrollView style={styles.content}>
-        {exercises.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="fitness-outline" size={64} color="#64748B" />
-            <Text style={styles.emptyText}>Nenhum exercício adicionado</Text>
-            <Text style={styles.emptySubtext}>
-              Toque no botão abaixo para adicionar exercícios
-            </Text>
+        {routine.exercises.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>Nenhum exercício adicionado.</Text>
           </View>
         ) : (
-          exercises.map((exercise, exerciseIndex) => (
-            <View key={exercise.id} style={styles.exerciseCard}>
-              {/* Nome do Exercício */}
+          routine.exercises.map((ex) => (
+            <View key={ex.id} style={styles.exerciseCard}>
+              {/* Header do exercício */}
               <View style={styles.exerciseHeader}>
-                {editingExerciseId === exercise.id ? (
-                  <View style={styles.editNameContainer}>
-                    <TextInput
-                      style={styles.editNameInput}
-                      value={editingExerciseName}
-                      onChangeText={setEditingExerciseName}
-                      autoFocus
-                    />
-                    <TouchableOpacity onPress={handleSaveExerciseName}>
-                      <Ionicons name="checkmark-circle" size={28} color="#22C55E" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setEditingExerciseId(null)}>
-                      <Ionicons name="close-circle" size={28} color="#F43F5E" />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <>
-                    <TouchableOpacity
-                      onPress={() => handleEditExerciseName(exercise.id, exercise.name)}
-                      style={styles.exerciseNameContainer}>
-                      <Text style={styles.exerciseName}>
-                        {exerciseIndex + 1}. {exercise.name}
-                      </Text>
-                      <Ionicons name="pencil" size={18} color="#64748B" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleDeleteExercise(exercise.id, exercise.name)}>
-                      <Ionicons name="trash-outline" size={24} color="#F43F5E" />
-                    </TouchableOpacity>
-                  </>
-                )}
+                <Text style={styles.exerciseTitle}>{ex.name}</Text>
+
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity onPress={() => startEditExercise(ex)}>
+                    <Ionicons name="create-outline" size={20} color="#94a3b8" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => confirmDeleteExercise(ex.id)}>
+                    <Ionicons name="trash-outline" size={20} color="#f43f5e" />
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              {/* Tempo de Descanso */}
-              <View style={styles.restTimeContainer}>
-                <Ionicons name="time-outline" size={20} color="#64748B" />
-                <Text style={styles.restTimeLabel}>Descanso (segundos):</Text>
+              {/* Rest Time */}
+              <View style={styles.restRow}>
+                <Text style={styles.restLabel}>Descanso (s):</Text>
+
                 <TextInput
-                  style={styles.restTimeInput}
                   keyboardType="numeric"
-                  defaultValue={exercise.restTime?.toString() || '60'}
-                  onEndEditing={(e) => {
-                    if (!routineId) return;
-                    const newRestTime = parseInt(e.nativeEvent.text) || 60;
-                    updateExerciseRestTime(routineId, exercise.id, newRestTime);
-                  }}
+                  defaultValue={String(ex.restTime ?? 60)}
+                  onEndEditing={(e) =>
+                    updateExerciseRestTime(
+                      routine.id,
+                      ex.id,
+                      sanitizeNumber(e.nativeEvent.text, 60)
+                    )
+                  }
+                  style={styles.restInput}
                 />
               </View>
 
-              {/* Cabeçalho das Séries */}
-              <View style={styles.setsHeader}>
-                <Text style={[styles.setsHeaderText, { flex: 0.8 }]}>SÉRIE</Text>
-                <Text style={[styles.setsHeaderText, { flex: 1 }]}>KG</Text>
-                <Text style={[styles.setsHeaderText, { flex: 1 }]}>REPS</Text>
-                <Text style={[styles.setsHeaderText, { flex: 0.5 }]}></Text>
-              </View>
-
               {/* Séries */}
-              {exercise.sets.map((set, setIndex) => (
-                <View key={set.id} style={styles.setRow}>
-                  <Text style={[styles.setNumber, { flex: 0.8 }]}>{setIndex + 1}</Text>
+              {ex.sets.map((s, idx) => (
+                <View key={s.id} style={styles.setRow}>
+                  <Text style={styles.setNumber}>{idx + 1}</Text>
+
                   <TextInput
-                    style={[styles.setInput, { flex: 1 }]}
                     keyboardType="numeric"
-                    placeholder="0"
-                    placeholderTextColor="#475569"
-                    defaultValue={set.weight?.toString() || ''}
-                    onEndEditing={(e) => {
-                      if (!routineId) return;
-                      const weight = parseFloat(e.nativeEvent.text) || 0;
-                      updateSet(routineId, exercise.id, set.id, set.reps, weight);
-                    }}
+                    defaultValue={String(s.weight ?? 0)}
+                    onEndEditing={(e) =>
+                      updateSet(
+                        routine.id,
+                        ex.id,
+                        s.id,
+                        s.reps,
+                        sanitizeNumber(e.nativeEvent.text, 0)
+                      )
+                    }
+                    style={styles.smallInput}
                   />
+
                   <TextInput
-                    style={[styles.setInput, { flex: 1 }]}
                     keyboardType="numeric"
-                    placeholder="0"
-                    placeholderTextColor="#475569"
-                    defaultValue={set.reps?.toString() || ''}
-                    onEndEditing={(e) => {
-                      if (!routineId) return;
-                      const reps = parseInt(e.nativeEvent.text) || 0;
-                      updateSet(routineId, exercise.id, set.id, reps, set.weight);
-                    }}
+                    defaultValue={String(s.reps ?? 0)}
+                    onEndEditing={(e) =>
+                      updateSet(
+                        routine.id,
+                        ex.id,
+                        s.id,
+                        sanitizeNumber(e.nativeEvent.text, 0),
+                        s.weight
+                      )
+                    }
+                    style={styles.smallInput}
                   />
-                  <TouchableOpacity
-                    style={{ flex: 0.5 }}
-                    onPress={() => handleDeleteSet(exercise.id, set.id, setIndex + 1)}>
-                    <Ionicons name="close-circle-outline" size={24} color="#F43F5E" />
+
+                  <TouchableOpacity onPress={() => confirmDeleteSet(ex.id, s.id)}>
+                    <Ionicons name="remove-circle-outline" size={22} color="#94a3b8" />
                   </TouchableOpacity>
                 </View>
               ))}
 
-              {/* Botão Adicionar Série */}
               <TouchableOpacity
-                style={styles.addSetButton}
-                onPress={() => routineId && addSet(routineId, exercise.id)}>
-                <Ionicons name="add-circle-outline" size={20} color="#22C55E" />
-                <Text style={styles.addSetButtonText}>Adicionar Série</Text>
+                style={styles.addSetBtn}
+                onPress={() => addSet(routine.id, ex.id)}
+              >
+                <Ionicons name="add" size={18} color="#22c55e" />
+                <Text style={styles.addSetText}>Adicionar Série</Text>
               </TouchableOpacity>
             </View>
           ))
         )}
       </ScrollView>
 
-
-
-      {/* Modal Adicionar Exercício */}
-      <Modal
-        visible={isModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}>
+      {/* Modal adicionar/editar exercício */}
+      <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Novo Exercício</Text>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>
+              {editingExercise ? 'Editar Exercício' : 'Novo Exercício'}
+            </Text>
+
             <TextInput
-              style={styles.modalInput}
-              placeholder="Nome do exercício"
-              placeholderTextColor="#64748B"
               value={newExerciseName}
               onChangeText={setNewExerciseName}
-              autoFocus
+              placeholder="Nome do exercício"
+              placeholderTextColor="#94a3b8"
+              style={styles.input}
             />
-            <View style={styles.modalButtons}>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => {
                   setModalVisible(false);
+                  setEditingExercise(null);
                   setNewExerciseName('');
-                }}>
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                }}
+                style={styles.modalCancel}
+              >
+                <Text style={{ color: '#E6E6E6' }}>Cancelar</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
-                style={[styles.modalButton, styles.addButton]}
-                onPress={handleAddExercise}>
-                <Text style={styles.addButtonText}>Adicionar</Text>
+                onPress={editingExercise ? applyEditExercise : handleAddExercise}
+                style={styles.modalConfirm}
+              >
+                <Text style={{ color: '#fff' }}>
+                  {editingExercise ? 'Salvar' : 'Adicionar'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      {/* Confirmação */}
+      <ConfirmModal
+        visible={confirmVisible}
+        message={'Confirma exclusão?'}
+        onConfirm={doDelete}
+        onCancel={() => setConfirmVisible(false)}
+      />
+
+      <Toast visible={toastVisible} message={toastMessage} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  compactActionBar: {
+  container: { flex: 1, backgroundColor: '#0F172A' },
+  header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  compactCancelButton: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: '#334155',
-    borderRadius: 20,
-  },
-  compactCancelText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  compactTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#E2E8F0',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 12,
-  },
-  compactFinishButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: '#064E3B',
-    borderRadius: 20,
-  },
-  compactFinishText: {
-    color: '#22C55E',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
     padding: 12,
+    backgroundColor: '#0B1220',
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: '#94A3B8',
-    marginTop: 16,
-    fontWeight: '600',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  errorText: {
-    color: '#F43F5E',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 20,
-  },
+  title: { color: '#22C55E', fontWeight: '700', fontSize: 18 },
+  content: { padding: 12 },
+
+  errorText: { color: '#F43F5E', padding: 16 },
+
+  empty: { padding: 24, alignItems: 'center' },
+  emptyText: { color: '#94A3B8' },
+
   exerciseCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: '#071025',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
   },
+
   exerciseHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  exerciseNameContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  exerciseName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#E2E8F0',
-  },
-  editNameContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  editNameInput: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    color: '#E2E8F0',
-    fontSize: 16,
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#22C55E',
-  },
-  restTimeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    gap: 8,
-  },
-  restTimeLabel: {
-    color: '#94A3B8',
-    fontSize: 14,
-    flex: 1,
-  },
-  restTimeInput: {
-    backgroundColor: '#1E293B',
-    color: '#E2E8F0',
-    fontSize: 16,
-    padding: 8,
-    borderRadius: 6,
-    width: 70,
-    textAlign: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  setsHeader: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
     marginBottom: 8,
   },
-  setsHeaderText: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  setRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  setNumber: {
-    color: '#94A3B8',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  setInput: {
+
+  exerciseTitle: { color: '#E2E8F0', fontWeight: '700' },
+
+  restRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  restLabel: { color: '#94A3B8' },
+  restInput: {
+    width: 90,
     backgroundColor: '#0F172A',
     color: '#E2E8F0',
-    fontSize: 16,
+    padding: 8,
+    borderRadius: 6,
+  },
+
+  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  setNumber: { color: '#94A3B8', width: 28, textAlign: 'center' },
+
+  smallInput: {
+    width: 84,
+    backgroundColor: '#0F172A',
+    color: '#E2E8F0',
+    padding: 8,
+    borderRadius: 6,
+  },
+
+  addSetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     padding: 10,
-    borderRadius: 6,
-    textAlign: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  addSetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#064E3B',
-    paddingVertical: 12,
     borderRadius: 8,
-    marginTop: 8,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#22C55E',
+    backgroundColor: '#081322',
+    justifyContent: 'center',
   },
-  addSetButtonText: {
-    color: '#22C55E',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  addSetText: { color: '#22C55E' },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
-  modalContainer: {
-    width: '100%',
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 24,
+
+  modalBox: {
+    width: '88%',
+    backgroundColor: '#0B1220',
+    borderRadius: 12,
+    padding: 16,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#E2E8F0',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  modalInput: {
-    backgroundColor: '#0F172A',
-    color: '#E2E8F0',
-    fontSize: 16,
+
+  modalTitle: { color: '#E2E8F0', fontSize: 16, fontWeight: '700', marginBottom: 12 },
+
+  input: {
+    backgroundColor: '#071025',
+    color: '#E6E6E6',
     padding: 12,
     borderRadius: 8,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
+    marginBottom: 12,
   },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#334155',
-  },
-  cancelButtonText: {
-    color: '#94A3B8',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  addButton: {
-    backgroundColor: '#22C55E',
-  },
-  addButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+
+  modalCancel: { padding: 10 },
+  modalConfirm: { backgroundColor: '#22C55E', padding: 10, borderRadius: 8 },
 });
