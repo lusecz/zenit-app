@@ -62,16 +62,12 @@ export default function ExecuteWorkoutScreen() {
   // Iniciar sessão de treino apenas uma vez
   useEffect(() => {
     if (routine && routine.exercises && routine.exercises.length > 0) {
-      console.log('Iniciando sessão com', routine.exercises.length, 'exercícios');
-      
       const exercisesWithSets = routine.exercises.map(ex => ({
         ...ex,
         sets: ex.sets && ex.sets.length > 0 
           ? ex.sets.map((set: any) => ({ ...set, isCompleted: false }))
           : [],
       }));
-      
-      console.log('Exercícios com séries:', exercisesWithSets);
       
       setSessionExercises(exercisesWithSets);
       setStartTime(new Date());

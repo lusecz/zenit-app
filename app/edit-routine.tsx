@@ -94,6 +94,19 @@ export default function EditRoutineScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* Action Bar */}
+      <View style={styles.compactActionBar}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.compactCancelButton}>
+          <Ionicons name="arrow-back-circle" size={24} color="#94A3B8" />
+          <Text style={styles.compactCancelText}>Voltar</Text>
+        </TouchableOpacity>
+        <Text style={styles.compactTitle}>{routine.name}</Text>
+        <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.compactFinishButton}>
+          <Ionicons name="add-circle" size={24} color="#22C55E" />
+          <Text style={styles.compactFinishText}>Adicionar</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView style={styles.content}>
         {exercises.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -213,14 +226,7 @@ export default function EditRoutineScreen() {
         )}
       </ScrollView>
 
-      {/* Botões Flutuantes */}
-      <TouchableOpacity style={styles.backFab} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={28} color="#FFF" />
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
-        <Ionicons name="add" size={32} color="#FFF" />
-      </TouchableOpacity>
+
 
       {/* Modal Adicionar Exercício */}
       <Modal
@@ -266,27 +272,55 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0F172A',
   },
-  header: {
+  compactActionBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#1E293B',
     paddingHorizontal: 16,
     paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
   },
-  backButton: {
-    padding: 4,
+  compactCancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: '#334155',
+    borderRadius: 20,
   },
-  headerTitle: {
-    fontSize: 18,
+  compactCancelText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  compactTitle: {
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#E2E8F0',
     flex: 1,
     textAlign: 'center',
+    marginHorizontal: 12,
+  },
+  compactFinishButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: '#064E3B',
+    borderRadius: 20,
+  },
+  compactFinishText: {
+    color: '#22C55E',
+    fontSize: 13,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: 12,
   },
   emptyContainer: {
     flex: 1,
@@ -428,38 +462,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  backFab: {
-    position: 'absolute',
-    left: 20,
-    bottom: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#64748B',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#22C55E',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
