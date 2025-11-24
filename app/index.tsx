@@ -1,7 +1,13 @@
 // app/index.tsx
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image } from "react-native";
-import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -16,27 +22,40 @@ export default function HomeScreen() {
 
       {/* Logo grande */}
       <View style={styles.hero}>
-        <Ionicons name="barbell" size={94} color="#22c55e" style={{ marginBottom: 12 }} />
+        <Ionicons
+          name="barbell"
+          size={94}
+          color="#22c55e"
+          style={{ marginBottom: 12 }}
+        />
         <Text style={styles.title}>Bem-vindo ao ZenitApp</Text>
         <Text style={styles.subtitle}>Seu controle inteligente de treinos</Text>
       </View>
 
       {/* Ações */}
       <View style={styles.buttonsContainer}>
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace("/(tabs)")}>
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={() => router.replace("/login")}
+        >
           <Text style={styles.primaryBtnText}>Acessar</Text>
         </TouchableOpacity>
 
         <Text style={styles.orText}>ou</Text>
 
-        <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push("/exercise-library")}>
+        <TouchableOpacity
+          style={styles.secondaryBtn}
+          onPress={() => router.push("/register")}
+        >
           <Text style={styles.secondaryBtnText}>Primeiro acesso</Text>
         </TouchableOpacity>
       </View>
 
       {/* Rodapé */}
       <View style={styles.footer}>
-        <Text style={styles.footerText}>© 2025 ZenitApp. Todos os direitos reservados.</Text>
+        <Text style={styles.footerText}>
+          © 2025 ZenitApp. Todos os direitos reservados.
+        </Text>
       </View>
     </SafeAreaView>
   );

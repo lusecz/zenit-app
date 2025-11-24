@@ -1,21 +1,22 @@
 // app/(tabs)/index.tsx
-import React, { useContext, useMemo, useState, useRef, useEffect } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
+  Modal,
+  Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Animated,
-  Modal,
-  ScrollView,
-  Platform,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 
 import { RoutineContext } from "@/context/RoutineContext";
 import { WorkoutHistoryContext } from "@/context/WorkoutHistoryContext";
+import { logout } from "@/services/auth";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -74,6 +75,15 @@ export default function HomeScreen() {
     } as any);
   };
 
+  async function handleLogout() {
+    try {
+      await logout();
+      router.replace("/login");
+    } catch (error) {
+      console.log("Erro ao fazer logout:", error);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -84,8 +94,8 @@ export default function HomeScreen() {
 
         <Text style={styles.logo}>Zenit</Text>
 
-        <TouchableOpacity onPress={() => router.push("/(tabs)/profile" as any)}>
-          <Ionicons name="person-circle-outline" size={30} color="#E2E8F0" />
+        <TouchableOpacity onPress={handleLogout}>
+          <Ionicons name="log-out" size={30} color="#E2E8F0" />
         </TouchableOpacity>
       </View>
 
@@ -93,7 +103,9 @@ export default function HomeScreen() {
       <View style={styles.content}>
         <View style={styles.topSection}>
           <Text style={styles.welcomeTitle}>Pronto para treinar hoje? 💪</Text>
-          <Text style={styles.subtitle}>O foco e a consistência te levam mais longe.</Text>
+          <Text style={styles.subtitle}>
+            O foco e a consistência te levam mais longe.
+          </Text>
 
           <View style={styles.recommendCard}>
             <View style={styles.recommendHeader}>
@@ -105,8 +117,13 @@ export default function HomeScreen() {
               {routineToStart?.name ?? "Nenhuma rotina cadastrada"}
             </Text>
 
-            <Animated.View style={{ transform: [{ scale: pulse }], width: "100%" }}>
-              <TouchableOpacity style={styles.startButton} onPress={openRoutineSelector}>
+            <Animated.View
+              style={{ transform: [{ scale: pulse }], width: "100%" }}
+            >
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={openRoutineSelector}
+              >
                 <Ionicons name="play" size={18} color="#0F172A" />
                 <Text style={styles.startButtonText}>Iniciar treino</Text>
               </TouchableOpacity>
@@ -122,7 +139,9 @@ export default function HomeScreen() {
             style={styles.actionButton}
             onPress={() => router.push("/exercise-library" as any)}
           >
-            <View style={styles.iconWrap}><Ionicons name="library-outline" size={20} color="#22c55e" /></View>
+            <View style={styles.iconWrap}>
+              <Ionicons name="library-outline" size={20} color="#22c55e" />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.actionText}>Exercícios cadastrados</Text>
               <Text style={styles.actionSub}>Procure aulas e vídeos</Text>
@@ -134,7 +153,9 @@ export default function HomeScreen() {
             style={styles.actionButton}
             onPress={() => router.push("/routines" as any)}
           >
-            <View style={styles.iconWrap}><Ionicons name="construct-outline" size={20} color="#22c55e" /></View>
+            <View style={styles.iconWrap}>
+              <Ionicons name="construct-outline" size={20} color="#22c55e" />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.actionText}>Organizar treinos</Text>
               <Text style={styles.actionSub}>Criar / editar rotinas</Text>
@@ -146,7 +167,9 @@ export default function HomeScreen() {
             style={styles.actionButton}
             onPress={() => router.push("/history" as any)}
           >
-            <View style={styles.iconWrap}><Ionicons name="bar-chart-outline" size={20} color="#22c55e" /></View>
+            <View style={styles.iconWrap}>
+              <Ionicons name="bar-chart-outline" size={20} color="#22c55e" />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.actionText}>Histórico</Text>
               <Text style={styles.actionSub}>Acompanhe seu progresso</Text>
@@ -162,7 +185,9 @@ export default function HomeScreen() {
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Escolha uma rotina</Text>
 
-            <ScrollView style={{ maxHeight: 300, width: "100%", marginTop: 12 }}>
+            <ScrollView
+              style={{ maxHeight: 300, width: "100%", marginTop: 12 }}
+            >
               {(routines ?? []).map((routine: any) => (
                 <TouchableOpacity
                   key={routine.id}
@@ -175,7 +200,10 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
 
-            <TouchableOpacity style={styles.modalCancel} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity
+              style={styles.modalCancel}
+              onPress={() => setModalVisible(false)}
+            >
               <Text style={styles.modalCancelText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -242,7 +270,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardTitle: { color: "#9AE6B4", fontSize: 13, fontWeight: "700" },
-  cardSubtitle: { color: "#E2E8F0", marginTop: 4, marginBottom: 12, fontSize: 16 },
+  cardSubtitle: {
+    color: "#E2E8F0",
+    marginTop: 4,
+    marginBottom: 12,
+    fontSize: 16,
+  },
 
   startButton: {
     flexDirection: "row",
@@ -253,7 +286,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
   },
-  startButtonText: { color: "#0F172A", fontWeight: "800", fontSize: 16, marginLeft: 8 },
+  startButtonText: {
+    color: "#0F172A",
+    fontWeight: "800",
+    fontSize: 16,
+    marginLeft: 8,
+  },
 
   // bottom section (ações rápidas) mais abaixo
   bottomSection: {

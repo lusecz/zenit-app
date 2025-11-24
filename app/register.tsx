@@ -1,4 +1,6 @@
+// app/register.tsx
 import { router } from "expo-router";
+import type { AuthError } from "firebase/auth";
 import React, { useState } from "react";
 import {
   StyleSheet,
@@ -8,18 +10,18 @@ import {
   View,
 } from "react-native";
 import Toast from "react-native-toast-message";
-import { login } from "../services/auth";
+import { register } from "../services/auth";
 
-export default function LoginScreen() {
+export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleLogin() {
+  async function handleRegister() {
     if (!email || !password) {
       Toast.show({
         type: "error",
-        text1: "Campos vazios",
+        text1: "Campos obrigatórios",
         text2: "Preencha email e senha.",
       });
       return;
@@ -28,66 +30,49 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await register(email, password);
 
       Toast.show({
         type: "success",
-        text1: "Login realizado",
-        text2: "Bem-vindo de volta!",
+        text1: "Conta criada",
+        text2: "Bem-vindo ao app!",
       });
 
       router.replace("/(tabs)");
     } catch (error: any) {
-      console.log("Erro Firebase:", error);
+      const authError = error as AuthError;
 
-      let message = "Ocorreu um erro inesperado. Tente novamente.";
+      let msg = "Erro ao criar conta.";
 
-      switch (error.code) {
+      switch (authError.code) {
+        case "auth/email-already-in-use":
+          msg = "Este email já está em uso.";
+          break;
+
         case "auth/invalid-email":
-          message = "E-mail inválido. Verifique o formato.";
+          msg = "O formato do email é inválido.";
           break;
 
-        case "auth/missing-email":
-          message = "Digite um e-mail para continuar.";
+        case "auth/operation-not-allowed":
+          msg = "Este tipo de login não está habilitado no Firebase.";
           break;
 
-        case "auth/missing-password":
-          message = "Digite sua senha.";
-          break;
-
-        case "auth/invalid-credential":
-          message = "Credenciais inválidas. Verifique e-mail e senha.";
-          break;
-
-        case "auth/wrong-password":
-          message = "Senha incorreta.";
-          break;
-
-        case "auth/user-not-found":
-          message = "Nenhuma conta encontrada com este e-mail.";
-          break;
-
-        case "auth/user-disabled":
-          message = "Esta conta foi desativada.";
-          break;
-
-        case "auth/too-many-requests":
-          message = "Muitas tentativas. Tente novamente mais tarde.";
+        case "auth/weak-password":
+          msg = "A senha deve ter pelo menos 6 caracteres.";
           break;
 
         case "auth/network-request-failed":
-          message = "Falha de conexão. Verifique sua internet.";
+          msg = "Falha de conexão. Verifique sua internet.";
           break;
 
         default:
-          message = "Erro desconhecido: " + error.code;
-          break;
+          msg = authError.message;
       }
 
       Toast.show({
         type: "error",
-        text1: "Erro no login",
-        text2: message,
+        text1: "Erro no registro",
+        text2: msg,
       });
     } finally {
       setLoading(false);
@@ -96,12 +81,13 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Entrar</Text>
+      <Text style={styles.title}>Criar Conta</Text>
 
       <TextInput
         placeholder="Email"
         placeholderTextColor="#ccc"
         style={styles.input}
+        autoCapitalize="none"
         onChangeText={setEmail}
       />
 
@@ -113,17 +99,17 @@ export default function LoginScreen() {
         onChangeText={setPassword}
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
+      <TouchableOpacity style={styles.button} onPress={handleRegister}>
         <Text style={styles.buttonText}>
-          {loading ? "Carregando..." : "Acessar"}
+          {loading ? "Criando..." : "Registrar"}
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/register")}>
-        <Text style={styles.link}>Criar conta</Text>
+      <TouchableOpacity onPress={() => router.replace("/login")}>
+        <Text style={styles.link}>Já tenho conta</Text>
       </TouchableOpacity>
 
-      {/* Necessário para Toast funcionar */}
+      {/* Componente necessário para mostrar os toasts */}
       <Toast />
     </View>
   );
