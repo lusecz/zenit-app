@@ -1,192 +1,133 @@
-import { useNavigation } from 'expo-router';
-import React from 'react';
-import {
-  Dimensions,
-  Image,
-  ImageBackground,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+// app/index.tsx
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image } from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
-const FundoAcademia = require('../assets/images/gym_background.jpeg');
-const Logo = require('../assets/images/zenit_logo.png');
-
-export default function WelcomeScreen() {
-  const navigation = useNavigation();
-
-  const handleAcessar = () => {
-    console.log('Navegar para Home após Login');
-  };
-
-  const handlePrimeiroAcesso = () => {
-    console.log('Navegar para Cadastro');
-  };
+export default function HomeScreen() {
+  const router = useRouter();
 
   return (
-    <ImageBackground source={FundoAcademia} style={styles.background}>
-      <StatusBar barStyle="light-content" translucent />
-      <View style={styles.overlay}>
-        {/* Cabeçalho */}
-        <View style={styles.header}>
-          <Image source={Logo} style={styles.headerLogo} resizeMode="contain" />
-          <Text style={styles.headerText}>Bem-vindo ao ZenitApp</Text>
-        </View>
-
-        {/* Conteúdo central com rolagem controlada */}
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.card}>
-            {/* Logo principal */}
-            <View style={styles.logoContainer}>
-              <View style={styles.logoCircle}>
-                <Image source={Logo} style={styles.logo} resizeMode="contain" />
-              </View>
-              <Text style={styles.appName}>ZenitApp</Text>
-            </View>
-
-            {/* Botões */}
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.primaryButton} onPress={handleAcessar}>
-                <Text style={styles.buttonText}>Acessar</Text>
-              </TouchableOpacity>
-
-              <Text style={styles.orText}>ou</Text>
-
-              <TouchableOpacity style={styles.secondaryButton} onPress={handlePrimeiroAcesso}>
-                <Text style={styles.buttonText}>Primeiro acesso</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* Rodapé */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 ZenitApp. Todos os direitos reservados.</Text>
-        </View>
+    <SafeAreaView style={styles.container}>
+      {/* Top Header minimalista */}
+      <View style={styles.header}>
+        <Ionicons name="fitness" size={28} color="#22c55e" />
+        <Text style={styles.headerText}>ZenitApp</Text>
       </View>
-    </ImageBackground>
+
+      {/* Logo grande */}
+      <View style={styles.hero}>
+        <Ionicons name="barbell" size={94} color="#22c55e" style={{ marginBottom: 12 }} />
+        <Text style={styles.title}>Bem-vindo ao ZenitApp</Text>
+        <Text style={styles.subtitle}>Seu controle inteligente de treinos</Text>
+      </View>
+
+      {/* Ações */}
+      <View style={styles.buttonsContainer}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace("/(tabs)")}>
+          <Text style={styles.primaryBtnText}>Acessar</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.orText}>ou</Text>
+
+        <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push("/exercise-library")}>
+          <Text style={styles.secondaryBtnText}>Primeiro acesso</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Rodapé */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>© 2025 ZenitApp. Todos os direitos reservados.</Text>
+      </View>
+    </SafeAreaView>
   );
 }
 
-const { width, height } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
-  background: {
+  container: {
     flex: 1,
-    resizeMode: 'cover',
+    backgroundColor: "#0F172A",
+    paddingHorizontal: 20,
+    justifyContent: "space-between",
   },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'space-between',
-  },
+
   header: {
-    width: '100%',
-    alignItems: 'center',
-    paddingTop: 50,
-    paddingBottom: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 10,
   },
-  headerLogo: {
-    width: 40,
-    height: 40,
-    marginBottom: 5,
-  },
+
   headerText: {
-    color: '#E2E8F0',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  card: {
-    width: width * 0.85,
-    borderRadius: 25,
-    paddingVertical: 40,
-    paddingHorizontal: 25,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logoCircle: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 50,
-    padding: 15,
-    marginBottom: 10,
-  },
-  logo: {
-    width: 60,
-    height: 60,
-  },
-  appName: {
-    fontSize: 42,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 1,
-  },
-  buttonContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#22C55E',
-    paddingVertical: 15,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 15,
-    elevation: 5,
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#22C55E',
-    paddingVertical: 15,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
+    color: "#E2E8F0",
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "700",
+    marginLeft: 10,
   },
-  orText: {
-    color: '#E2E8F0',
+
+  hero: {
+    alignItems: "center",
+    marginTop: 30,
+  },
+
+  title: {
+    color: "#E2E8F0",
+    fontSize: 32,
+    fontWeight: "800",
+    marginTop: 10,
+  },
+
+  subtitle: {
+    color: "#94a3b8",
     fontSize: 16,
-    marginVertical: 10,
+    marginTop: 6,
   },
-  footer: {
-    width: '100%',
-    alignItems: 'center',
-    paddingVertical: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderTopWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+
+  buttonsContainer: {
+    alignItems: "center",
+    marginTop: 40,
   },
-  footerText: {
-    color: '#94A3B8',
+
+  primaryBtn: {
+    backgroundColor: "#22c55e",
+    paddingVertical: 14,
+    width: "100%",
+    borderRadius: 12,
+    alignItems: "center",
+  },
+
+  primaryBtnText: {
+    color: "#0F172A",
+    fontWeight: "700",
+    fontSize: 18,
+  },
+
+  orText: {
+    color: "#94a3b8",
+    marginVertical: 12,
     fontSize: 14,
+  },
+
+  secondaryBtn: {
+    borderWidth: 2,
+    borderColor: "#22c55e",
+    paddingVertical: 14,
+    width: "100%",
+    borderRadius: 12,
+    alignItems: "center",
+  },
+
+  secondaryBtnText: {
+    color: "#22c55e",
+    fontWeight: "700",
+    fontSize: 18,
+  },
+
+  footer: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+
+  footerText: {
+    color: "#94a3b8",
+    fontSize: 12,
   },
 });
