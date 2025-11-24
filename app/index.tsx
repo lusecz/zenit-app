@@ -1,5 +1,6 @@
-import { useNavigation } from 'expo-router';
-import React from 'react';
+import { router, useNavigation } from "expo-router";
+
+import React from "react";
 import {
   Dimensions,
   Image,
@@ -9,22 +10,17 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
-} from 'react-native';
+  View,
+} from "react-native";
 
-const FundoAcademia = require('../assets/images/gym_background.jpeg');
-const Logo = require('../assets/images/zenit_logo.png');
+const FundoAcademia = require("../assets/images/gym_background.jpeg");
+const Logo = require("../assets/images/zenit_logo.png");
 
 export default function WelcomeScreen() {
   const navigation = useNavigation();
 
-  const handleAcessar = () => {
-    console.log('Navegar para Home após Login');
-  };
-
-  const handlePrimeiroAcesso = () => {
-    console.log('Navegar para Cadastro');
-  };
+  const handleAcessar = () => router.push("/login");
+  const handlePrimeiroAcesso = () => router.push("/register");
 
   return (
     <ImageBackground source={FundoAcademia} style={styles.background}>
@@ -52,13 +48,19 @@ export default function WelcomeScreen() {
 
             {/* Botões */}
             <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.primaryButton} onPress={handleAcessar}>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={handleAcessar}
+              >
                 <Text style={styles.buttonText}>Acessar</Text>
               </TouchableOpacity>
 
               <Text style={styles.orText}>ou</Text>
 
-              <TouchableOpacity style={styles.secondaryButton} onPress={handlePrimeiroAcesso}>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={handlePrimeiroAcesso}
+              >
                 <Text style={styles.buttonText}>Primeiro acesso</Text>
               </TouchableOpacity>
             </View>
@@ -67,33 +69,35 @@ export default function WelcomeScreen() {
 
         {/* Rodapé */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 ZenitApp. Todos os direitos reservados.</Text>
+          <Text style={styles.footerText}>
+            © 2025 ZenitApp. Todos os direitos reservados.
+          </Text>
         </View>
       </View>
     </ImageBackground>
   );
 }
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'space-between',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "space-between",
   },
   header: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     paddingTop: 50,
     paddingBottom: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
     borderBottomWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: "rgba(255,255,255,0.2)",
   },
   headerLogo: {
     width: 40,
@@ -101,14 +105,14 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   headerText: {
-    color: '#E2E8F0',
+    color: "#E2E8F0",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 40,
   },
   card: {
@@ -116,21 +120,21 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     paddingVertical: 40,
     paddingHorizontal: 25,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    shadowColor: '#000',
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 40,
   },
   logoCircle: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: "rgba(255,255,255,0.15)",
     borderRadius: 50,
     padding: 15,
     marginBottom: 10,
@@ -141,52 +145,52 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: 42,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: "700",
+    color: "#fff",
     letterSpacing: 1,
   },
   buttonContainer: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
   },
   primaryButton: {
-    backgroundColor: '#22C55E',
+    backgroundColor: "#22C55E",
     paddingVertical: 15,
     borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     marginBottom: 15,
     elevation: 5,
   },
   secondaryButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 2,
-    borderColor: '#22C55E',
+    borderColor: "#22C55E",
     paddingVertical: 15,
     borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   orText: {
-    color: '#E2E8F0',
+    color: "#E2E8F0",
     fontSize: 16,
     marginVertical: 10,
   },
   footer: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     paddingVertical: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
     borderTopWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: "rgba(255,255,255,0.2)",
   },
   footerText: {
-    color: '#94A3B8',
+    color: "#94A3B8",
     fontSize: 14,
   },
 });

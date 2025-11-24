@@ -1,20 +1,42 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React from "react";
+import {
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { logout } from "../../services/auth"; // ⬅ IMPORTANTE
+import { auth } from "../../services/firebase"; // ⬅ IMPORTANTE
 
 function HeaderBar() {
+  const user = auth.currentUser;
+  const userName = user?.displayName || user?.email?.split("@")[0] || "Usuário";
+
+  async function handleLogout() {
+    try {
+      await logout();
+      router.replace("/login");
+    } catch (error) {
+      console.log("Erro ao fazer logout:", error);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.header}>
-      {/* Ícone do Menu (simulando drawer ou ação futura) */}
       <TouchableOpacity style={styles.iconButton}>
         <Ionicons name="menu" size={28} color="#E2E8F0" />
       </TouchableOpacity>
-      {/* Nome do App centralizado */}
-      <Text style={styles.appTitle}>ZenitApp</Text>
-      {/* Ícone de Perfil */}
-      <TouchableOpacity style={styles.iconButton}>
-        <Ionicons name="person-circle-outline" size={28} color="#E2E8F0" />
+
+      {/* Nome real do usuário */}
+      <Text style={styles.userName}>{userName}</Text>
+
+      <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={28} color="#E2E8F0" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -42,16 +64,21 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.title}>Treino de Hoje</Text>
           <Text style={styles.subtitle}>Push Day - Peito & Tríceps</Text>
-          <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)/routines')}>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => router.push("/(tabs)/routines")}
+          >
             <Text style={styles.buttonText}>Iniciar Treino</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.title}>Progresso Semanal</Text>
-          <Text style={styles.subtitle}>Você completou 4 de 5 treinos previstos 🚀</Text>
+          <Text style={styles.subtitle}>
+            Você completou 4 de 5 treinos previstos 🚀
+          </Text>
         </View>
-        
+
         <View style={styles.section}>
           <Text style={styles.title}>Métricas da Semana</Text>
           <Text style={styles.subtitle}>Volume Total: 12.5KG</Text>
@@ -84,13 +111,13 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: "#0F172A",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#1E293B',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#1E293B",
     paddingHorizontal: 18,
     paddingTop: 40,
     paddingBottom: 14,
@@ -98,10 +125,15 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 6,
   },
+  userName: {
+    color: "#22C55E",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
   appTitle: {
-    color: '#22C55E',
+    color: "#22C55E",
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     letterSpacing: 2,
   },
   scrollContainer: {
@@ -112,57 +144,57 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   headerTitle: {
-    color: '#E2E8F0',
+    color: "#E2E8F0",
     fontSize: 26,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   tagline: {
-    color: '#22C55E',
+    color: "#22C55E",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   title: {
-    color: '#E2E8F0',
+    color: "#E2E8F0",
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
   },
   subtitle: {
-    color: '#94A3B8',
+    color: "#94A3B8",
     fontSize: 15,
   },
   button: {
-    backgroundColor: '#22C55E',
+    backgroundColor: "#22C55E",
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
     marginTop: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   buttonText: {
-    color: '#0F172A',
+    color: "#0F172A",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   actionButton: {
-    backgroundColor: '#1E293B',
+    backgroundColor: "#1E293B",
     paddingVertical: 12,
     borderRadius: 8,
     marginTop: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   actionButtonText: {
-    color: '#E2E8F0',
+    color: "#E2E8F0",
     fontSize: 15,
   },
   footer: {
     marginTop: 24,
-    alignItems: 'center',
+    alignItems: "center",
   },
   footerText: {
-    color: '#94A3B8',
+    color: "#94A3B8",
     fontSize: 12,
   },
 });
