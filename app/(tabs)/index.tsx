@@ -1,4 +1,5 @@
-import React, { useContext, useMemo, useState } from "react";
+// app/(tabs)/index.tsx
+import React, { useContext, useMemo, useState, useRef, useEffect } from "react";
 import {
   SafeAreaView,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
   Animated,
   Modal,
   ScrollView,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -17,30 +19,47 @@ import { WorkoutHistoryContext } from "@/context/WorkoutHistoryContext";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { routines } = useContext(RoutineContext);
-  const { sessions } = useContext(WorkoutHistoryContext);
+  const { routines = [] } = useContext(RoutineContext) as any;
+  const { sessions = [] } = useContext(WorkoutHistoryContext) as any;
 
   const [modalVisible, setModalVisible] = useState(false);
 
-  // última sessão (se houver) ou qualquer rotina disponível
+  // Pulse animation
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.06,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1.0,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+
+  // safe routine selection
   const routineToStart = useMemo(() => {
-    if (sessions && sessions.length > 0) {
+    try {
+      if (!sessions || sessions.length === 0) return routines?.[0] ?? null;
       const last = sessions[0];
-      return routines.find((r) => r.id === last.routineId) || routines[0];
+      const matched = routines.find((r: any) => r.id === last.routineId);
+      return matched ?? routines?.[0] ?? null;
+    } catch {
+      return routines?.[0] ?? null;
     }
-    return routines[0];
   }, [sessions, routines]);
 
-  const pulse = new Animated.Value(1);
-  Animated.loop(
-    Animated.sequence([
-      Animated.timing(pulse, { toValue: 1.06, duration: 700, useNativeDriver: true }),
-      Animated.timing(pulse, { toValue: 1.0, duration: 700, useNativeDriver: true }),
-    ])
-  ).start();
-
   const openRoutineSelector = () => {
-    if (routines.length === 0) {
+    if (!routines || routines.length === 0) {
       alert("Nenhuma rotina cadastrada ainda.");
       return;
     }
@@ -57,10 +76,10 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push("/routines" as any)}>
-          <Ionicons name="menu" size={28} color="#E2E8F0" />
+          <Ionicons name="menu" size={26} color="#E2E8F0" />
         </TouchableOpacity>
 
         <Text style={styles.logo}>Zenit</Text>
@@ -70,76 +89,93 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* CONTENT */}
-      <View style={styles.inner}>
-        <Text style={styles.welcomeTitle}>Pronto para treinar hoje? 💪</Text>
-        <Text style={styles.subtitle}>Escolha um treino e dê o seu melhor.</Text>
+      {/* Main content: top + bottom (actions pushed downward) */}
+      <View style={styles.content}>
+        <View style={styles.topSection}>
+          <Text style={styles.welcomeTitle}>Pronto para treinar hoje? 💪</Text>
+          <Text style={styles.subtitle}>O foco e a consistência te levam mais longe.</Text>
 
-        {/* CARD PRINCIPAL */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Treino recomendado</Text>
-          <Text style={styles.cardSubtitle}>
-            {routineToStart ? routineToStart.name : "Nenhuma rotina cadastrada"}
-          </Text>
+          <View style={styles.recommendCard}>
+            <View style={styles.recommendHeader}>
+              <Text style={styles.cardTitle}>Treino recomendado</Text>
+              <Ionicons name="star" size={18} color="#9AE6B4" />
+            </View>
 
-          <Animated.View style={{ transform: [{ scale: pulse }], width: "100%" }}>
-            <TouchableOpacity style={styles.startButton} onPress={openRoutineSelector}>
-              <Text style={styles.startButtonText}>Iniciar treino</Text>
-            </TouchableOpacity>
-          </Animated.View>
+            <Text style={styles.cardSubtitle}>
+              {routineToStart?.name ?? "Nenhuma rotina cadastrada"}
+            </Text>
+
+            <Animated.View style={{ transform: [{ scale: pulse }], width: "100%" }}>
+              <TouchableOpacity style={styles.startButton} onPress={openRoutineSelector}>
+                <Ionicons name="play" size={18} color="#0F172A" />
+                <Text style={styles.startButtonText}>Iniciar treino</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
         </View>
 
-        {/* AÇÕES RÁPIDAS */}
-        <Text style={styles.sectionTitle}>Ações rápidas</Text>
+        {/* bottomSection com ações rápidas — mais abaixo na tela */}
+        <View style={styles.bottomSection}>
+          <Text style={styles.sectionTitle}>Ações rápidas</Text>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push("/exercise-library" as any)}
-        >
-          <Ionicons name="library-outline" size={22} color="#22c55e" />
-          <Text style={styles.actionText}>Exercícios cadastrados</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push("/exercise-library" as any)}
+          >
+            <View style={styles.iconWrap}><Ionicons name="library-outline" size={20} color="#22c55e" /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionText}>Exercícios cadastrados</Text>
+              <Text style={styles.actionSub}>Procure aulas e vídeos</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push("/routines" as any)}
-        >
-          <Ionicons name="construct-outline" size={22} color="#22c55e" />
-          <Text style={styles.actionText}>Organizar treinos</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push("/routines" as any)}
+          >
+            <View style={styles.iconWrap}><Ionicons name="construct-outline" size={20} color="#22c55e" /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionText}>Organizar treinos</Text>
+              <Text style={styles.actionSub}>Criar / editar rotinas</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push("/history" as any)}
-        >
-          <Ionicons name="bar-chart-outline" size={22} color="#22c55e" />
-          <Text style={styles.actionText}>Histórico</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push("/history" as any)}
+          >
+            <View style={styles.iconWrap}><Ionicons name="bar-chart-outline" size={20} color="#22c55e" /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionText}>Histórico</Text>
+              <Text style={styles.actionSub}>Acompanhe seu progresso</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* 📌 MODAL DE SELEÇÃO DE ROTINA */}
+      {/* Modal seleção de rotina */}
       <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Escolha uma rotina</Text>
 
             <ScrollView style={{ maxHeight: 300, width: "100%", marginTop: 12 }}>
-              {routines.map((routine) => (
+              {(routines ?? []).map((routine: any) => (
                 <TouchableOpacity
                   key={routine.id}
                   style={styles.modalRoutineButton}
                   onPress={() => startRoutine(routine.id)}
                 >
-                  <Ionicons name="barbell-outline" size={22} color="#22c55e" />
+                  <Ionicons name="barbell-outline" size={18} color="#22c55e" />
                   <Text style={styles.modalRoutineText}>{routine.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
-            <TouchableOpacity
-              style={styles.modalCancel}
-              onPress={() => setModalVisible(false)}
-            >
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setModalVisible(false)}>
               <Text style={styles.modalCancelText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -150,7 +186,11 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#071026" },
+  container: {
+    flex: 1,
+    backgroundColor: "#071026",
+  },
+
   header: {
     height: 68,
     backgroundColor: "#081426",
@@ -161,51 +201,94 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#0f1724",
   },
-  logo: { color: "#22c55e", fontSize: 22, fontWeight: "800" },
-  inner: { padding: 20 },
-  welcomeTitle: { fontSize: 22, fontWeight: "700", color: "#E2E8F0", marginBottom: 4 },
-  subtitle: { color: "#94A3B8", marginBottom: 20 },
+  logo: { color: "#22c55e", fontSize: 20, fontWeight: "800" },
 
-  card: {
-    backgroundColor: "#071025",
-    padding: 16,
-    borderRadius: 14,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: "#0b1320",
+  content: {
+    flex: 1,
+    padding: 20,
+    // dividimos espaço entre top e bottom para empurrar ações para baixo
+    justifyContent: "space-between",
   },
-  cardTitle: { color: "#9AE6B4", fontSize: 14, fontWeight: "700" },
-  cardSubtitle: { color: "#E2E8F0", marginTop: 6, marginBottom: 14, fontSize: 16 },
+
+  topSection: {
+    // conteúdo superior ficará natural no topo
+  },
+
+  welcomeTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#E2E8F0",
+    marginBottom: 4,
+  },
+  subtitle: { color: "#94A3B8", marginBottom: 14 },
+
+  // Card com leve efeito glass
+  recommendCard: {
+    backgroundColor: Platform.OS === "web" ? "rgba(11,18,32,0.85)" : "#071025",
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "rgba(23,36,42,0.6)",
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  recommendHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  cardTitle: { color: "#9AE6B4", fontSize: 13, fontWeight: "700" },
+  cardSubtitle: { color: "#E2E8F0", marginTop: 4, marginBottom: 12, fontSize: 16 },
 
   startButton: {
-    backgroundColor: "#16a34a",
-    paddingVertical: 14,
-    borderRadius: 12,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#16a34a",
+    paddingVertical: 12,
+    borderRadius: 12,
   },
-  startButtonText: { color: "#0F172A", fontWeight: "800", fontSize: 16 },
+  startButtonText: { color: "#0F172A", fontWeight: "800", fontSize: 16, marginLeft: 8 },
 
+  // bottom section (ações rápidas) mais abaixo
+  bottomSection: {
+    // empurra para baixo visualmente
+  },
   sectionTitle: {
     color: "#E2E8F0",
     fontSize: 18,
     fontWeight: "700",
-    marginBottom: 14,
+    marginBottom: 12,
   },
 
   actionButton: {
     backgroundColor: "#081426",
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
     padding: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#0f1a28",
     marginBottom: 12,
   },
-  actionText: { color: "#E2E8F0", fontSize: 16 },
+  iconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: "rgba(34,197,94,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  actionText: { color: "#E2E8F0", fontSize: 16, fontWeight: "700" },
+  actionSub: { color: "#94a3b8", fontSize: 12 },
 
-  // MODAL
+  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -218,7 +301,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#17212a",
-    padding: 20,
+    padding: 18,
     alignItems: "center",
   },
   modalTitle: { color: "#E2E8F0", fontWeight: "800", fontSize: 18 },
@@ -240,9 +323,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  modalCancel: {
-    marginTop: 14,
-    paddingVertical: 10,
-  },
+  modalCancel: { marginTop: 10, paddingVertical: 10 },
   modalCancelText: { color: "#94a3b8", fontSize: 16 },
 });

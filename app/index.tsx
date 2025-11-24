@@ -23,7 +23,7 @@ export default function HomeScreen() {
 
       {/* Ações */}
       <View style={styles.buttonsContainer}>
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push("/routines")}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace("/(tabs)")}>
           <Text style={styles.primaryBtnText}>Acessar</Text>
         </TouchableOpacity>
 

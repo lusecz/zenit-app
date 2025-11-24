@@ -1,5 +1,13 @@
 import React, { useContext, useState } from "react";
-import { FlatList, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, Animated } from "react-native";
+import {
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from "react-native";
 import { useRouter } from "expo-router";
 import { RoutineContext } from "@/context/RoutineContext";
 import { isValidName } from "@/helpers/validators";
@@ -9,7 +17,13 @@ import { Ionicons } from "@expo/vector-icons";
 
 export default function RoutinesScreen() {
   const router = useRouter();
-  const { routines, addRoutine, updateRoutine, removeRoutine, loading } = useContext(RoutineContext);
+  const {
+    routines,
+    addRoutine,
+    updateRoutine,
+    removeRoutine,
+    loading
+  } = useContext(RoutineContext);
 
   const [creatingName, setCreatingName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -84,31 +98,63 @@ export default function RoutinesScreen() {
       <View style={styles.item}>
         {editingId === item.id ? (
           <>
-            <TextInput value={editingName} onChangeText={setEditingName} style={styles.inputInline} />
+            <TextInput
+              value={editingName}
+              onChangeText={setEditingName}
+              style={styles.inputInline}
+            />
             <TouchableOpacity onPress={applyEdit} style={styles.iconButton}>
               <Ionicons name="checkmark" size={20} color="#22c55e" />
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => { setEditingId(null); setEditingName(""); }} style={styles.iconButton}>
+            <TouchableOpacity
+              onPress={() => {
+                setEditingId(null);
+                setEditingName("");
+              }}
+              style={styles.iconButton}
+            >
               <Ionicons name="close" size={20} color="#f43f5e" />
             </TouchableOpacity>
           </>
         ) : (
           <>
-            <TouchableOpacity style={{ flex: 1 }} onPress={() => router.push({ pathname: "/edit-routine", params: { routineId: item.id } } as any)}>
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              onPress={() =>
+                router.push({
+                  pathname: "/edit-routine",
+                  params: { routineId: item.id }
+                } as any)
+              }
+            >
               <Text style={styles.title}>{item.name}</Text>
             </TouchableOpacity>
 
             <View style={styles.actions}>
-              <TouchableOpacity onPress={() => router.push({ pathname: "/execute-workout", params: { routineId: item.id } } as any)} style={styles.iconButton}>
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: "/execute-workout",
+                    params: { routineId: item.id }
+                  } as any)
+                }
+                style={styles.iconButton}
+              >
                 <Ionicons name="play" size={20} color="#22c55e" />
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => startEdit(item.id, item.name)} style={styles.iconButton}>
+              <TouchableOpacity
+                onPress={() => startEdit(item.id, item.name)}
+                style={styles.iconButton}
+              >
                 <Ionicons name="create-outline" size={20} color="#94a3b8" />
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => confirmDelete(item.id)} style={styles.iconButton}>
+              <TouchableOpacity
+                onPress={() => confirmDelete(item.id)}
+                style={styles.iconButton}
+              >
                 <Ionicons name="trash-outline" size={20} color="#f43f5e" />
               </TouchableOpacity>
             </View>
@@ -120,16 +166,47 @@ export default function RoutinesScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* ---------------- HEADER COM BOTÃO DE VOLTAR ---------------- */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back-circle" size={30} color="#94a3b8" />
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>Rotinas</Text>
+
+        <View style={{ width: 30 }} />
+      </View>
+
+      {/* BARRA DE CRIAÇÃO */}
       <View style={styles.headerRow}>
-        <TextInput placeholder="Nova rotina" placeholderTextColor="#94a3b8" value={creatingName} onChangeText={setCreatingName} style={styles.input} />
+        <TextInput
+          placeholder="Nova rotina"
+          placeholderTextColor="#94a3b8"
+          value={creatingName}
+          onChangeText={setCreatingName}
+          style={styles.input}
+        />
         <TouchableOpacity onPress={handleCreate} style={styles.createButton}>
           <Text style={styles.createText}>Adicionar</Text>
         </TouchableOpacity>
       </View>
 
-      <FlatList data={routines} keyExtractor={(i) => i.id} renderItem={renderItem} contentContainerStyle={{ padding: 16 }} ListEmptyComponent={<Text style={{ color: "#94a3b8" }}>Nenhuma rotina encontrada.</Text>} />
+      <FlatList
+        data={routines}
+        keyExtractor={(i) => i.id}
+        renderItem={renderItem}
+        contentContainerStyle={{ padding: 16 }}
+        ListEmptyComponent={
+          <Text style={{ color: "#94a3b8" }}>Nenhuma rotina encontrada.</Text>
+        }
+      />
 
-      <ConfirmModal visible={confirmVisible} message="Tem certeza que deseja deletar esta rotina? Esta ação não pode ser desfeita." onConfirm={doDelete} onCancel={() => setConfirmVisible(false)} />
+      <ConfirmModal
+        visible={confirmVisible}
+        message="Tem certeza que deseja deletar esta rotina? Esta ação não pode ser desfeita."
+        onConfirm={doDelete}
+        onCancel={() => setConfirmVisible(false)}
+      />
 
       <Toast visible={toastVisible} message={toastMessage} />
     </SafeAreaView>
@@ -138,14 +215,69 @@ export default function RoutinesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#071026" },
+
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    backgroundColor: "#081426",
+    borderBottomWidth: 1,
+    borderBottomColor: "#0f1724",
+  },
+
+  headerTitle: {
+    color: "#22c55e",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
   loading: { color: "#94A3B8", padding: 16 },
+
   headerRow: { flexDirection: "row", padding: 16, gap: 8 },
-  input: { flex: 1, backgroundColor: "#081426", color: "#E6E6E6", padding: 12, borderRadius: 10 },
-  inputInline: { flex: 1, backgroundColor: "#081426", color: "#E6E6E6", padding: 8, borderRadius: 6 },
-  createButton: { backgroundColor: "#16a34a", paddingHorizontal: 14, justifyContent: "center", borderRadius: 10 },
+
+  input: {
+    flex: 1,
+    backgroundColor: "#081426",
+    color: "#E6E6E6",
+    padding: 12,
+    borderRadius: 10,
+  },
+
+  inputInline: {
+    flex: 1,
+    backgroundColor: "#081426",
+    color: "#E6E6E6",
+    padding: 8,
+    borderRadius: 6,
+  },
+
+  createButton: {
+    backgroundColor: "#16a34a",
+    paddingHorizontal: 14,
+    justifyContent: "center",
+    borderRadius: 10,
+  },
+
   createText: { color: "#071026", fontWeight: "800" },
-  item: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 12, backgroundColor: "#081426", borderRadius: 12, marginBottom: 10, shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 10, elevation: 6 },
+
+  item: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 12,
+    backgroundColor: "#081426",
+    borderRadius: 12,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+
   title: { color: "#E2E8F0", fontSize: 16, fontWeight: "700" },
+
   actions: { flexDirection: "row", gap: 10 },
+
   iconButton: { padding: 6, marginLeft: 8 },
 });
