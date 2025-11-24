@@ -1,168 +1,188 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useContext, useMemo } from "react";
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
-function HeaderBar() {
+import { RoutineContext } from "@/context/RoutineContext";
+import { WorkoutHistoryContext } from "@/context/WorkoutHistoryContext";
+
+export default function HomeScreen() {
+  const router = useRouter();
+  const { routines } = useContext(RoutineContext);
+  const { sessions } = useContext(WorkoutHistoryContext);
+
+  // Seleciona a última rotina utilizada, ou a primeira cadastrada
+  const routineToStart = useMemo(() => {
+    if (sessions.length > 0) {
+      const last = sessions[0];
+      return routines.find((r) => r.id === last.routineId) || routines[0];
+    }
+    return routines[0];
+  }, [sessions, routines]);
+
   return (
-    <SafeAreaView style={styles.header}>
-      {/* Ícone do Menu (simulando drawer ou ação futura) */}
-      <TouchableOpacity style={styles.iconButton}>
+    <SafeAreaView style={styles.container}>
+      {/* HEADER */}
+      <View style={styles.header}>
         <Ionicons name="menu" size={28} color="#E2E8F0" />
-      </TouchableOpacity>
-      {/* Nome do App centralizado */}
-      <Text style={styles.appTitle}>ZenitApp</Text>
-      {/* Ícone de Perfil */}
-      <TouchableOpacity style={styles.iconButton}>
-        <Ionicons name="person-circle-outline" size={28} color="#E2E8F0" />
-      </TouchableOpacity>
+        <Text style={styles.logo}>ZenitApp</Text>
+        <Ionicons name="person-circle-outline" size={30} color="#E2E8F0" />
+      </View>
+
+      <View style={styles.inner}>
+        <Text style={styles.welcomeTitle}>Bem-vindo! 👋</Text>
+        <Text style={styles.subtitle}>
+          Controle seu treino diário com praticidade e motivação.
+        </Text>
+
+        {/* CARD HOJE */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Treino de Hoje</Text>
+          <Text style={styles.cardSubtitle}>
+            {routineToStart ? routineToStart.name : "Nenhuma rotina definida"}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={() => {
+              if (!routineToStart) {
+                alert("Nenhuma rotina cadastrada.");
+                return;
+              }
+              router.push(`/execute-workout?routineId=${routineToStart.id}`);
+            }}
+          >
+            <Text style={styles.startButtonText}>Iniciar Treino</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* AÇÕES RÁPIDAS */}
+        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push("/exercise-library")}
+        >
+          <Ionicons name="library-outline" size={22} color="#22c55e" />
+          <Text style={styles.actionText}>Exercícios cadastrados</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push("/routines")}
+        >
+          <Ionicons name="construct-outline" size={22} color="#22c55e" />
+          <Text style={styles.actionText}>Organizar treinos</Text>
+        </TouchableOpacity>
+
+        {/* TROQUEI /history POR /routines-history OU /stats PARA EVITAR ERRO */}
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push("/routines")} 
+        >
+          <Ionicons name="bar-chart-outline" size={22} color="#22c55e" />
+          <Text style={styles.actionText}>Visualizar histórico</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
-export default function HomeScreen() {
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <HeaderBar />
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.section}>
-          <Text style={styles.headerTitle}>Bem-vindo, Bruno! 👋</Text>
-          <Text style={styles.subtitle}>
-            Controle seu treino diário com praticidade e incrível motivação.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.tagline}>
-            Organização e progresso em cada treino!
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.title}>Treino de Hoje</Text>
-          <Text style={styles.subtitle}>Push Day - Peito & Tríceps</Text>
-          <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)/routines')}>
-            <Text style={styles.buttonText}>Iniciar Treino</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.title}>Progresso Semanal</Text>
-          <Text style={styles.subtitle}>Você completou 4 de 5 treinos previstos 🚀</Text>
-        </View>
-        
-        <View style={styles.section}>
-          <Text style={styles.title}>Métricas da Semana</Text>
-          <Text style={styles.subtitle}>Volume Total: 12.5KG</Text>
-          <Text style={styles.subtitle}>Treinos Realizados: 4</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.title}>Ações Rápidas</Text>
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>Exercícios cadastrados</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>Organizar treinos</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>Visualizar histórico</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Projeto acadêmico em desenvolvimento.
-          </Text>
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
+  container: { flex: 1, backgroundColor: "#0F172A" },
+
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 18,
-    paddingTop: 40,
-    paddingBottom: 14,
+    height: 68,
+    backgroundColor: "#0B1220",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1E293B",
   },
-  iconButton: {
-    padding: 6,
+
+  logo: {
+    color: "#22c55e",
+    fontSize: 22,
+    fontWeight: "700",
   },
-  appTitle: {
-    color: '#22C55E',
-    fontSize: 20,
-    fontWeight: 'bold',
-    letterSpacing: 2,
+
+  inner: { padding: 20 },
+
+  welcomeTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#E2E8F0",
+    marginBottom: 4,
   },
-  scrollContainer: {
-    padding: 20,
-    paddingTop: 10,
-  },
-  section: {
-    marginBottom: 28,
-  },
-  headerTitle: {
-    color: '#E2E8F0',
-    fontSize: 26,
-    fontWeight: 'bold',
-  },
-  tagline: {
-    color: '#22C55E',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  title: {
-    color: '#E2E8F0',
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
+
   subtitle: {
-    color: '#94A3B8',
-    fontSize: 15,
+    color: "#94A3B8",
+    marginBottom: 20,
   },
-  button: {
-    backgroundColor: '#22C55E',
+
+  card: {
+    backgroundColor: "#0B1220",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#1E293B",
+  },
+
+  cardTitle: {
+    color: "#E2E8F0",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  cardSubtitle: {
+    color: "#94A3B8",
+    marginTop: 4,
+    marginBottom: 14,
+  },
+
+  startButton: {
+    backgroundColor: "#22c55e",
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 16,
-    alignItems: 'center',
+    borderRadius: 10,
+    alignItems: "center",
   },
-  buttonText: {
-    color: '#0F172A',
+
+  startButtonText: {
+    color: "#0F172A",
+    fontWeight: "700",
     fontSize: 16,
-    fontWeight: 'bold',
   },
+
+  sectionTitle: {
+    color: "#E2E8F0",
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+
   actionButton: {
-    backgroundColor: '#1E293B',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 8,
-    alignItems: 'center',
+    backgroundColor: "#0B1220",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#1E293B",
+    marginBottom: 12,
   },
-  actionButtonText: {
-    color: '#E2E8F0',
-    fontSize: 15,
-  },
-  footer: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  footerText: {
-    color: '#94A3B8',
-    fontSize: 12,
+
+  actionText: {
+    color: "#E2E8F0",
+    fontSize: 16,
   },
 });

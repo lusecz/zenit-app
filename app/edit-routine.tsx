@@ -8,10 +8,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Platform,
 } from 'react-native';
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { RoutineContext } from '@/context/RoutineContext';
 import { isValidName, sanitizeNumber } from '@/helpers/validators';
@@ -19,11 +21,9 @@ import { isValidName, sanitizeNumber } from '@/helpers/validators';
 import Toast from '@/components/Toast';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
-import { Ionicons } from '@expo/vector-icons';
-
 export default function EditRoutineScreen() {
-  const { routineId } = useLocalSearchParams<{ routineId?: string }>();
   const router = useRouter();
+  const { routineId } = useLocalSearchParams<{ routineId?: string }>();
 
   const {
     getRoutine,
@@ -33,7 +33,7 @@ export default function EditRoutineScreen() {
     addSet,
     updateSet,
     removeSet,
-    updateExerciseRestTime
+    updateExerciseRestTime,
   } = useContext(RoutineContext);
 
   const routine = useMemo(
@@ -43,13 +43,20 @@ export default function EditRoutineScreen() {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
-  const [editingExercise, setEditingExercise] = useState<{ id: string; name: string } | null>(null);
+  const [editingExercise, setEditingExercise] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
   const [confirmVisible, setConfirmVisible] = useState(false);
-  const [toDelete, setToDelete] = useState<{ kind: 'exercise' | 'set'; exId: string; setId?: string } | null>(null);
+  const [toDelete, setToDelete] = useState<{
+    kind: 'exercise' | 'set';
+    exId: string;
+    setId?: string;
+  } | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -139,25 +146,42 @@ export default function EditRoutineScreen() {
     setToDelete(null);
   };
 
-  // --------------------------------------------
-  // UI
-  // --------------------------------------------
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        {/* BACK BUTTON FIXED FOR WEB + MOBILE */}
+        <TouchableOpacity
+          onPress={() => {
+            if (Platform.OS === 'web') {
+              router.push('/(tabs)/routines');
+            } else {
+              router.back();
+            }
+          }}
+        >
           <Ionicons name="arrow-back-circle" size={28} color="#94a3b8" />
         </TouchableOpacity>
 
         <Text style={styles.title}>{routine.name}</Text>
 
-        <TouchableOpacity onPress={() => setModalVisible(true)}>
-          <Ionicons name="add-circle" size={28} color="#22c55e" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          {/* LIBRARY BUTTON */}
+          <TouchableOpacity
+            onPress={() =>
+              router.push(`/exercise-library?routineId=${routine.id}`)
+            }
+          >
+            <Ionicons name="library-outline" size={26} color="#38bdf8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setModalVisible(true)}>
+            <Ionicons name="add-circle" size={26} color="#22c55e" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Conteúdo */}
+      {/* CONTENT */}
       <ScrollView style={styles.content}>
         {routine.exercises.length === 0 ? (
           <View style={styles.empty}>
@@ -166,7 +190,7 @@ export default function EditRoutineScreen() {
         ) : (
           routine.exercises.map((ex) => (
             <View key={ex.id} style={styles.exerciseCard}>
-              {/* Header do exercício */}
+              {/* EXERCISE HEADER */}
               <View style={styles.exerciseHeader}>
                 <Text style={styles.exerciseTitle}>{ex.name}</Text>
 
@@ -175,13 +199,15 @@ export default function EditRoutineScreen() {
                     <Ionicons name="create-outline" size={20} color="#94a3b8" />
                   </TouchableOpacity>
 
-                  <TouchableOpacity onPress={() => confirmDeleteExercise(ex.id)}>
+                  <TouchableOpacity
+                    onPress={() => confirmDeleteExercise(ex.id)}
+                  >
                     <Ionicons name="trash-outline" size={20} color="#f43f5e" />
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Rest Time */}
+              {/* REST TIME */}
               <View style={styles.restRow}>
                 <Text style={styles.restLabel}>Descanso (s):</Text>
 
@@ -199,7 +225,7 @@ export default function EditRoutineScreen() {
                 />
               </View>
 
-              {/* Séries */}
+              {/* SETS */}
               {ex.sets.map((s, idx) => (
                 <View key={s.id} style={styles.setRow}>
                   <Text style={styles.setNumber}>{idx + 1}</Text>
@@ -234,8 +260,14 @@ export default function EditRoutineScreen() {
                     style={styles.smallInput}
                   />
 
-                  <TouchableOpacity onPress={() => confirmDeleteSet(ex.id, s.id)}>
-                    <Ionicons name="remove-circle-outline" size={22} color="#94a3b8" />
+                  <TouchableOpacity
+                    onPress={() => confirmDeleteSet(ex.id, s.id)}
+                  >
+                    <Ionicons
+                      name="remove-circle-outline"
+                      size={22}
+                      color="#94a3b8"
+                    />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -252,7 +284,7 @@ export default function EditRoutineScreen() {
         )}
       </ScrollView>
 
-      {/* Modal adicionar/editar exercício */}
+      {/* MODAL ADD / EDIT EXERCISE */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -268,7 +300,13 @@ export default function EditRoutineScreen() {
               style={styles.input}
             />
 
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                gap: 8,
+              }}
+            >
               <TouchableOpacity
                 onPress={() => {
                   setModalVisible(false);
@@ -293,7 +331,6 @@ export default function EditRoutineScreen() {
         </View>
       </Modal>
 
-      {/* Confirmação */}
       <ConfirmModal
         visible={confirmVisible}
         message={'Confirma exclusão?'}
