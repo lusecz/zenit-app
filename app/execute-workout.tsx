@@ -1,428 +1,665 @@
-// app/execute-workout.tsx
-// Animated Execute Workout screen (fixed SharedValue usage + UX improvements)
-// Requires: react-native-reanimated v2+, expo-av, expo-haptics
-// Add sound files in: assets/sounds/start.wav end.wav alert.wav (or adjust paths)
-
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+// /app/execute-workout.tsx
+import React, { useEffect, useMemo, useRef, useState, useContext } from "react";
 import {
-  Dimensions,
   SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Animated,
+  Easing,
+  StatusBar,
   Platform,
-} from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { RoutineContext } from '@/context/RoutineContext';
-import Toast from '@/components/Toast';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
+  Modal,
+  Alert,
+  Linking,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  useAnimatedScrollHandler,
-  interpolate,
-  Extrapolate,
-  withTiming,
-  runOnJS,
-  SharedValue,
-} from 'react-native-reanimated';
+import { RoutineContext } from "@/context/RoutineContext";
+import { WorkoutHistoryContext } from "@/context/WorkoutHistoryContext";
+// importa sua biblioteca de exercícios (pode ser .ts ou .json)
+import { EXERCISE_LIBRARY } from "@/data/exercise-library";
 
-const { width } = Dimensions.get('window');
 
-type ExerciseType = {
+/*
+  ExecuteWorkoutScreen - final com botão YouTube integrado.
+
+  Observações:
+  - EXERCISE_LIBRARY deve exportar um objeto/array com os exercícios
+    e cada exercício idealmente possuir `id`, `name` e `youtube` (url).
+  - Se não houver vídeo para determinado exercício, será aberta uma busca no YouTube.
+*/
+
+type ExerciseSetLocal = {
   id: string;
-  name: string;
-  restTime?: number;
-  sets: { id: string; reps: number; weight: number; isCompleted?: boolean }[];
+  reps?: number;
+  weight?: number;
+  isCompleted?: boolean;
 };
 
+type ExerciseLocal = {
+  id: string;
+  name: string;
+  restTime: number;
+  sets: ExerciseSetLocal[];
+  // opcional:
+  youtube?: string;
+};
+
+function useAnimatedValue(initial = 0) {
+  const v = useRef(new Animated.Value(initial)).current;
+  return v;
+}
+
 export default function ExecuteWorkoutScreen() {
-  const { routineId } = useLocalSearchParams<{ routineId?: string }>();
   const router = useRouter();
-  const { getRoutine, toggleSetCompletion, updateSet } = useContext(RoutineContext);
+  const { routineId } = useLocalSearchParams<{ routineId?: string }>();
 
-  const routine = useMemo(() => (routineId ? getRoutine(routineId) : undefined), [routineId, getRoutine]);
+  // Hooks (sempre chamados)
+  const { routines } = useContext(RoutineContext);
+  const {
+    currentSession,
+    startWorkoutSession,
+    updateCurrentSession,
+    finishWorkoutSession,
+  } = useContext(WorkoutHistoryContext);
 
-  // Shared values declared ONCE at top-level of component
-  const scrollX = useSharedValue(0);
-  // popActiveId: id of set currently popping; popProgress: 0..1 progress
-  const popActiveId = useSharedValue<string | null>(null);
-  const popProgress = useSharedValue(0);
+  const routine = useMemo(
+    () => routines.find((r) => r.id === routineId),
+    [routines, routineId]
+  );
 
-  const scrollRef = useRef<Animated.ScrollView | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-
-  const restTimerRef = useRef<any>(null);
-  const [restVisible, setRestVisible] = useState(false);
-  const [restSeconds, setRestSeconds] = useState(0);
-  const finishingRef = useRef(false);
-
-  // sounds
-  const soundStart = useRef<Audio.Sound | null>(null);
-  const soundEnd = useRef<Audio.Sound | null>(null);
-  const soundAlert = useRef<Audio.Sound | null>(null);
-
+  // Se a rotina foi removida enquanto o usuário está aqui -> redireciona
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        // load sounds if present; if not, catch silently
-        const start = await Audio.Sound.createAsync(require('../assets/sounds/start.wav')).catch(() => null);
-        if (start && mounted) soundStart.current = start.sound;
-
-        const end = await Audio.Sound.createAsync(require('../assets/sounds/end.wav')).catch(() => null);
-        if (end && mounted) soundEnd.current = end.sound;
-
-        const alert = await Audio.Sound.createAsync(require('../assets/sounds/alert.wav')).catch(() => null);
-        if (alert && mounted) soundAlert.current = alert.sound;
-      } catch (e) {
-        console.warn('Failed to load one or more sounds', e);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-      [soundStart.current, soundEnd.current, soundAlert.current].forEach((s) => {
-        if (s) s.unloadAsync().catch(() => {});
-      });
-      if (restTimerRef.current) clearInterval(restTimerRef.current);
-    };
-  }, []);
+    if (!routine) {
+      // replace para não deixar rota inválida no histórico
+      router.replace("/routines");
+    }
+  }, [routine, router]);
 
   if (!routine) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>Rotina não encontrada.</Text>
+        <StatusBar barStyle="light-content" />
+        <View style={{ padding: 20 }}>
+          <Text style={{ color: "#94a3b8" }}>
+            Rotina não encontrada. Redirecionando...
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
 
-  const exercises = routine.exercises as ExerciseType[];
+  // Inicializa sessão apenas no mount se não existir
+  useEffect(() => {
+    if (!currentSession) {
+      startWorkoutSession(routine.id, routine.name, routine.exercises);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setToastVisible(true);
-    setTimeout(() => setToastVisible(false), 2500);
-  };
+  // Snapshot fallback
+  const session = useMemo(() => {
+    if (currentSession) return currentSession;
+    return {
+      id: `tmp_${Date.now()}`,
+      routineId: routine.id,
+      routineName: routine.name,
+      exercises: (routine.exercises || []).map((ex: any) => ({
+        id: ex.id,
+        name: ex.name,
+        restTime: ex.restTime ?? 60,
+        sets: (ex.sets ?? []).map((s: any) => ({ ...s, isCompleted: false })),
+        youtube: ex.youtube,
+      })),
+    };
+  }, [currentSession, routine]);
 
-  const onScroll = useAnimatedScrollHandler((event) => {
-    scrollX.value = event.contentOffset.x;
-  });
+  // Estado local de exercícios (copiado da session)
+  const [exercises, setExercises] = useState<ExerciseLocal[]>(
+    (session.exercises || []).map((ex: any) => ({
+      id: ex.id,
+      name: ex.name,
+      restTime: ex.restTime ?? 60,
+      sets: (ex.sets || []).map((s: any) => ({
+        id: s.id,
+        reps: s.reps ?? 0,
+        weight: s.weight ?? 0,
+        isCompleted: !!s.isCompleted,
+      })),
+      youtube: ex.youtube,
+    }))
+  );
 
-  const scrollTo = (index: number) => {
-    const clamped = Math.max(0, Math.min(index, exercises.length - 1));
-    scrollRef.current?.scrollTo({ x: clamped * width, animated: true });
-    setCurrentIndex(clamped);
-  };
+  // Mantém sync se session mudar
+  useEffect(() => {
+    setExercises(
+      (session.exercises || []).map((ex: any) => ({
+        id: ex.id,
+        name: ex.name,
+        restTime: ex.restTime ?? 60,
+        sets: (ex.sets || []).map((s: any) => ({
+          id: s.id,
+          reps: s.reps ?? 0,
+          weight: s.weight ?? 0,
+          isCompleted: !!s.isCompleted,
+        })),
+        youtube: ex.youtube,
+      }))
+    );
+  }, [session.exercises]);
 
-  const playSound = async (which: 'start' | 'end' | 'alert') => {
+  const [exerciseIndex, setExerciseIndex] = useState(0);
+
+  // Timer por série/exercício
+  const [seconds, setSeconds] = useState(0);
+  const [running, setRunning] = useState(false);
+
+  // Timer TOTAL (nunca para automaticamente quando troca de exercício)
+  const [totalSeconds, setTotalSeconds] = useState(0);
+  const [totalRunning, setTotalRunning] = useState(false);
+  const totalTimerRef = useRef<number | null>(null);
+  const tickRef = useRef<number | null>(null);
+
+  // Modal descanso
+  const [restModalVisible, setRestModalVisible] = useState(false);
+  const [restCountdown, setRestCountdown] = useState(0);
+
+  // Transition overlay (small)
+  const [transitioning, setTransitioning] = useState(false);
+
+  // Animações
+  const progAnim = useAnimatedValue(0);
+  const fadeAnim = useAnimatedValue(1);
+  const translateY = useAnimatedValue(0);
+
+  // TIMER GLOBAL (total)
+  useEffect(() => {
+    if (totalRunning) {
+      if (totalTimerRef.current == null) {
+        totalTimerRef.current = global.setInterval(() => {
+          setTotalSeconds((s) => s + 1);
+        }, 1000) as unknown as number;
+      }
+    } else {
+      if (totalTimerRef.current != null) {
+        clearInterval(totalTimerRef.current);
+        totalTimerRef.current = null;
+      }
+    }
+    return () => {
+      if (totalTimerRef.current != null) {
+        clearInterval(totalTimerRef.current);
+        totalTimerRef.current = null;
+      }
+    };
+  }, [totalRunning]);
+
+  // TIMER LOCAL (por série)
+  useEffect(() => {
+    if (!running) {
+      if (tickRef.current != null) {
+        clearInterval(tickRef.current as unknown as number);
+        tickRef.current = null;
+      }
+      return;
+    }
+    tickRef.current = global.setInterval(() => setSeconds((s) => s + 1), 1000) as unknown as number;
+    return () => {
+      if (tickRef.current != null) {
+        clearInterval(tickRef.current as unknown as number);
+        tickRef.current = null;
+      }
+    };
+  }, [running]);
+
+  // Atualiza barra de progresso conforme restTime do exercício atual
+  useEffect(() => {
+    const cur = exercises[exerciseIndex];
+    if (!cur) return;
+    const total = Math.max(1, cur.restTime);
+    Animated.timing(progAnim, {
+      toValue: Math.min(seconds / total, 1),
+      duration: 160,
+      useNativeDriver: false,
+      easing: Easing.out(Easing.quad),
+    }).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seconds, exerciseIndex]);
+
+  // Formatadores
+  const formattedTime = useMemo(() => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }, [seconds]);
+
+  const formattedTotal = useMemo(() => {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }, [totalSeconds]);
+
+  // Persiste estado no contexto
+  const persistExerciseState = (next: ExerciseLocal[]) => {
+    setExercises(next);
     try {
-      if (which === 'start' && soundStart.current) await soundStart.current.replayAsync();
-      if (which === 'end' && soundEnd.current) await soundEnd.current.replayAsync();
-      if (which === 'alert' && soundAlert.current) await soundAlert.current.replayAsync();
+      updateCurrentSession(
+        next.map((ex) => ({
+          id: ex.id,
+          name: ex.name,
+          restTime: ex.restTime,
+          sets: ex.sets,
+          youtube: ex.youtube,
+        }))
+      );
     } catch {
-      // ignore audio errors
+      /* ignora se contexto não estiver pronto */
     }
   };
 
-  const startRest = (seconds: number, exerciseName?: string, autoAdvance = true) => {
-    if (restTimerRef.current) clearInterval(restTimerRef.current);
-    setRestSeconds(seconds);
-    setRestVisible(true);
-
-    restTimerRef.current = setInterval(() => {
-      setRestSeconds((p) => {
-        if (p <= 1) {
-          clearInterval(restTimerRef.current);
-          restTimerRef.current = null;
-          setRestVisible(false);
-
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-          playSound('end');
-          showToast(`Descanso finalizado${exerciseName ? ` — ${exerciseName}` : ''}`);
-
-          if (autoAdvance) runOnJS(handleAdvanceAfterRest)();
-          return 0;
+  // Busca o vídeo no EXERCISE_LIBRARY (procura por id, depois por name)
+  const findVideoUrlForExercise = (exercise: ExerciseLocal) => {
+    // EXERCISE_LIBRARY pode ter várias formas: object com grupos, array, etc.
+    try {
+      // Se é um objeto de grupos: { Peito: [..], Costas: [..] }
+      if (typeof EXERCISE_LIBRARY === "object" && !Array.isArray(EXERCISE_LIBRARY)) {
+        for (const groupKey of Object.keys(EXERCISE_LIBRARY)) {
+          const list = (EXERCISE_LIBRARY as any)[groupKey];
+          if (!Array.isArray(list)) continue;
+          const found = list.find(
+            (ex: any) => (ex.id && ex.id === exercise.id) || (ex.name && ex.name === exercise.name)
+          );
+          if (found && found.youtube) return found.youtube;
         }
-        return p - 1;
-      });
+      }
+
+      // Se for um array
+      if (Array.isArray(EXERCISE_LIBRARY)) {
+        const found = EXERCISE_LIBRARY.find(
+          (ex: any) => (ex.id && ex.id === exercise.id) || (ex.name && ex.name === exercise.name)
+        );
+        if (found && found.youtube) return found.youtube;
+      }
+    } catch (err) {
+      // nada
+    }
+
+    // fallback: se o próprio exercício tem youtube
+    if ((exercise as any).youtube) return (exercise as any).youtube;
+
+    // último recurso: retorna URL de busca no YouTube pelo nome
+    const query = encodeURIComponent(exercise.name || "");
+    return `https://www.youtube.com/results?search_query=${query}`;
+  };
+
+  // Marca/Desmarca série como concluída
+  const toggleSetComplete = (setIndex: number) => {
+    const cloned = exercises.map((ex) => ({ ...ex, sets: ex.sets.map((s) => ({ ...s })) }));
+    const target = cloned[exerciseIndex];
+    if (!target) return;
+
+    target.sets[setIndex].isCompleted = !target.sets[setIndex].isCompleted;
+
+    // Ao marcar, inicia timers (local e global)
+    if (target.sets[setIndex].isCompleted) {
+      if (!totalRunning) setTotalRunning(true);
+      setRunning(true);
+      setSeconds(0);
+    }
+
+    persistExerciseState(cloned);
+
+    const allDone = target.sets.every((s) => !!s.isCompleted);
+    if (allDone) {
+      const rest = target.restTime ?? 60;
+      if (rest <= 0) {
+        nextExerciseWithAnimation();
+        return;
+      }
+      setRestCountdown(rest);
+      setRestModalVisible(true);
+      setRunning(false);
+    }
+  };
+
+  // Modal de descanso countdown
+  useEffect(() => {
+    if (!restModalVisible) return;
+    if (restCountdown <= 0) {
+      setRestModalVisible(false);
+      nextExerciseWithAnimation();
+      return;
+    }
+    const id = setInterval(() => {
+      setRestCountdown((c) => (c <= 1 ? 0 : c - 1));
     }, 1000);
+    return () => clearInterval(id);
+  }, [restModalVisible, restCountdown]);
+
+  // Troca para próximo exercício com animação
+  const nextExerciseWithAnimation = () => {
+    const next = exerciseIndex + 1;
+    if (next >= exercises.length) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 12, duration: 220, useNativeDriver: true }),
+      ]).start(() => {
+        try {
+          finishWorkoutSession();
+        } catch {}
+        // redireciona para a tela de resultado (você pode passar params se quiser)
+        router.replace("/result");
+      });
+      return;
+    }
+
+    setTransitioning(true);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 12, duration: 200, useNativeDriver: true }),
+    ]).start(() => {
+      setExerciseIndex(next);
+      setSeconds(0);
+      setRunning(false);
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 260, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 0, duration: 260, useNativeDriver: true }),
+      ]).start(() => setTransitioning(false));
+    });
   };
 
-  const cancelRest = () => {
-    if (restTimerRef.current) clearInterval(restTimerRef.current);
-    restTimerRef.current = null;
-    setRestVisible(false);
-    setRestSeconds(0);
+  const prevExercise = () => {
+    if (exerciseIndex <= 0) return;
+    const prev = exerciseIndex - 1;
+    setTransitioning(true);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: -12, duration: 180, useNativeDriver: true }),
+    ]).start(() => {
+      setExerciseIndex(prev);
+      setSeconds(0);
+      setRunning(false);
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 0, duration: 220, useNativeDriver: true }),
+      ]).start(() => setTransitioning(false));
+    });
   };
 
-  const handleAdvanceAfterRest = () => {
-    const exIndex = currentIndex;
-    if (exIndex < exercises.length - 1) scrollTo(exIndex + 1);
-    else if (!finishingRef.current) {
-      finishingRef.current = true;
-      showToast('Parabéns — Treino finalizado!');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      playSound('end');
+  // Start/Pause principal (ativa total timer se necessário)
+  const toggleRunning = () => {
+    if (!totalRunning) setTotalRunning(true);
+    setRunning((r) => !r);
+  };
+
+  const estimatedTotalTime = useMemo(() => {
+    let total = 0;
+    exercises.forEach((ex) => {
+      ex.sets.forEach(() => (total += 10));
+      total += ex.restTime ?? 0;
+    });
+    return total;
+  }, [exercises]);
+
+  const currentExercise = exercises[exerciseIndex];
+
+  // Abre video: usa library se houver, senão usa busca no YouTube
+  const openExerciseVideo = async (exercise: ExerciseLocal) => {
+    try {
+      const url = findVideoUrlForExercise(exercise);
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert("Erro", "Não foi possível abrir o link do vídeo.");
+        return;
+      }
+      await Linking.openURL(url);
+    } catch (err) {
+      Alert.alert("Erro", "Não foi possível abrir o vídeo.");
     }
   };
-
-  // trigger pop: set active id + animate progress
-  const triggerSetPop = (setId: string) => {
-    popActiveId.value = setId;
-    // set to 1 then animate to 0; withTiming returns immediately, but that's fine
-    popProgress.value = withTiming(1, { duration: 160 }, () => {
-      popProgress.value = withTiming(0, { duration: 220 });
-    });
-  };
-
-  const onToggleSet = (exerciseId: string, setId: string) => {
-    // toggle in context (persistence)
-    toggleSetCompletion(routine.id, exerciseId, setId);
-
-    // feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    playSound('start');
-    triggerSetPop(setId);
-
-    const ex = exercises.find((e) => e.id === exerciseId);
-    if (!ex) return;
-    const setObj = ex.sets.find((s) => s.id === setId);
-    if (!setObj) return;
-
-    const nowCompleted = !setObj.isCompleted; // because toggled
-    if (nowCompleted && ex.restTime && ex.restTime > 0) {
-      startRest(ex.restTime, ex.name, true);
-    }
-  };
-
-  const onUpdateSet = (exerciseId: string, setId: string, reps: number | string, weight: number | string) => {
-    const safeReps = Number(reps) || 0;
-    const safeWeight = Number(weight) || 0;
-    updateSet(routine.id, exerciseId, setId, safeReps, safeWeight);
-  };
-
-  // components local to file for readability
-  function SetRow({ ex, s, idx }: { ex: ExerciseType; s: ExerciseType['sets'][0]; idx: number }) {
-    const animStyle = useAnimatedStyle(() => {
-      const isActive = popActiveId.value === s.id;
-      const progress = popProgress.value;
-      const scale = isActive ? interpolate(progress, [0, 1], [1, 1.12], Extrapolate.CLAMP) : 1;
-      return { transform: [{ scale }] as any };
-    });
-
-    return (
-      <View style={styles.setRow}>
-        <TouchableOpacity onPress={() => onToggleSet(ex.id, s.id)} style={styles.checkButton}>
-          <Animated.View style={animStyle as any}>
-            <Ionicons name={s.isCompleted ? 'checkmark-circle' : 'ellipse-outline'} size={30} color={s.isCompleted ? '#22C55E' : '#94a3b8'} />
-          </Animated.View>
-        </TouchableOpacity>
-
-        <Text style={styles.setLabel}>{idx + 1}</Text>
-
-        <TextInput
-          keyboardType="numeric"
-          defaultValue={String(s.weight ?? '')}
-          onEndEditing={(e) => onUpdateSet(ex.id, s.id, s.reps, Number(e.nativeEvent.text || 0))}
-          style={styles.setInput}
-          placeholder="Kg"
-          placeholderTextColor="#475569"
-        />
-
-        <TextInput
-          keyboardType="numeric"
-          defaultValue={String(s.reps ?? '')}
-          onEndEditing={(e) => onUpdateSet(ex.id, s.id, Number(e.nativeEvent.text || 0), s.weight)}
-          style={styles.setInput}
-          placeholder="Reps"
-          placeholderTextColor="#475569"
-        />
-      </View>
-    );
-  }
-
-  function ExerciseCard({ ex, i }: { ex: ExerciseType; i: number }) {
-    const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
-
-    const titleStyle = useAnimatedStyle(() => {
-      const translate = interpolate(scrollX.value, inputRange, [-24, 0, 24], Extrapolate.CLAMP);
-      const opacity = interpolate(scrollX.value, inputRange, [0.7, 1, 0.7], Extrapolate.CLAMP);
-      return {
-        transform: [{ translateX: translate } as any],
-        opacity,
-      };
-    });
-
-    return (
-      <View key={ex.id} style={[styles.card, { width }]}>
-        <Animated.View style={[styles.titleWrap, titleStyle]}>
-          <Text style={styles.exerciseName}>{i + 1}. {ex.name}</Text>
-          <Text style={styles.subText}>Descanso: {ex.restTime ?? 60}s • Séries: {ex.sets.length}</Text>
-        </Animated.View>
-
-        <View style={styles.setsContainer}>
-          {ex.sets.map((s, idx) => <SetRow key={s.id} ex={ex} s={s} idx={idx} />)}
-        </View>
-
-        <View style={styles.cardFooter}>
-          <TouchableOpacity onPress={() => scrollTo(Math.max(i - 1, 0))} style={styles.navBtn}>
-            <Ionicons name="chevron-back-circle" size={36} color="#94a3b8" />
-          </TouchableOpacity>
-
-          <Text style={styles.progressText}>{i + 1} / {exercises.length}</Text>
-
-          <TouchableOpacity onPress={() => scrollTo(Math.min(i + 1, exercises.length - 1))} style={styles.navBtn}>
-            <Ionicons name="chevron-forward-circle" size={36} color="#22C55E" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  // progress bar style
-  const progressBarStyle = useAnimatedStyle(() => {
-    const progress = interpolate(scrollX.value, [0, (exercises.length - 1) * width], [0, 1], Extrapolate.CLAMP);
-    return { transform: [{ scaleX: progress < 0 ? 0 : progress }], opacity: 1 };
-  });
-
-  // dots data
-  const Dot = ({ index }: { index: number }) => {
-    const style = useAnimatedStyle(() => {
-      const px = scrollX.value / width;
-      const dist = Math.abs(px - index);
-      const scale = interpolate(dist, [0, 1], [1.2, 0.9], Extrapolate.CLAMP);
-      const opacity = interpolate(dist, [0, 1], [1, 0.5], Extrapolate.CLAMP);
-      return { transform: [{ scale }], opacity };
-    });
-    return <Animated.View style={[styles.dot, style]} />;
-  };
-
-  // fullscreen toggle
-  const [fullscreen, setFullscreen] = useState(false);
 
   return (
     <SafeAreaView style={styles.container}>
-      {!fullscreen && (
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-            <Ionicons name="arrow-back" size={22} color="#94a3b8" />
+      <StatusBar barStyle="light-content" />
+      {/* HEADER */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.push("/routines")}>
+          <Ionicons name="arrow-back-circle" size={26} color="#94a3b8" />
+        </TouchableOpacity>
+
+        <Text style={styles.title}>{routine.name}</Text>
+
+        {/* Ícone do YouTube fica no header: abre vídeo do exercício atual */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <TouchableOpacity
+            onPress={() => {
+              if (!currentExercise) return;
+              openExerciseVideo(currentExercise);
+            }}
+            style={{ padding: 6 }}
+            accessibilityLabel="Abrir vídeo do exercício"
+          >
+            <Ionicons name="logo-youtube" size={22} color="#ef4444" />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>{routine.name}</Text>
-
-          <TouchableOpacity onPress={() => setFullscreen((s) => !s)} style={styles.headerBtn}>
-            <Ionicons name={fullscreen ? 'contract' : 'expand'} size={22} color="#94a3b8" />
+          <TouchableOpacity onPress={() => { /* fullscreen placeholder */ }}>
+            <Ionicons name="expand" size={22} color="#94a3b8" />
           </TouchableOpacity>
         </View>
-      )}
-
-      {/* animated progress bar */}
-      <View style={styles.progressWrap}>
-        <Animated.View style={[styles.progressFill, progressBarStyle]} />
       </View>
 
-      <Animated.ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-      >
-        {exercises.map((ex, i) => <ExerciseCard key={ex.id} ex={ex} i={i} />)}
-      </Animated.ScrollView>
-
-      {/* dots indicator */}
-      {!fullscreen && (
+      {/* Dots + Progress */}
+      <View style={styles.topArea}>
         <View style={styles.dotsRow}>
-          {exercises.map((_, idx) => <Dot key={idx} index={idx} />)}
+          {exercises.map((_, i) => (
+            <View key={i} style={[styles.dot, i === exerciseIndex ? styles.dotActive : styles.dotInactive]} />
+          ))}
         </View>
-      )}
 
-      {/* Rest overlay */}
-      {restVisible && (
-        <View style={styles.restOverlay}>
-          <View style={styles.restBox}>
-            <Text style={styles.restTitle}>Descanso</Text>
-            <Text style={styles.restCounter}>{restSeconds}s</Text>
-            <TouchableOpacity
-              style={styles.skipBtn}
-              onPress={() => {
-                cancelRest();
-                showToast('Descanso pulado');
-                handleAdvanceAfterRest();
-              }}
-            >
-              <Text style={styles.skipText}>Pular descanso</Text>
-            </TouchableOpacity>
+        <View style={styles.progressBarBackground}>
+          <Animated.View
+            style={[
+              styles.progressBarFill,
+              {
+                width: progAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
+              },
+            ]}
+          />
+        </View>
+      </View>
+
+      {/* CONTEÚDO */}
+      <ScrollView contentContainerStyle={{ padding: 16 }}>
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY }] }}>
+          <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <View>
+                <Text style={styles.exerciseName}>{currentExercise?.name ?? "—"}</Text>
+                <Text style={styles.seriesInfo}>
+                  Série {(currentExercise?.sets.filter((s) => s.isCompleted).length ?? 0) + 1} / {currentExercise?.sets.length ?? 0}
+                </Text>
+              </View>
+
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={styles.timerSmallLabel}>Tempo total</Text>
+                <Text style={styles.timerTotal}>{formattedTotal}</Text>
+              </View>
+            </View>
+
+            <View style={styles.timerRow}>
+              <View>
+                <Text style={styles.timerLabel}>Cronômetro</Text>
+                <Text style={styles.timerValue}>{formattedTime}</Text>
+              </View>
+
+              <View style={{ alignItems: "center" }}>
+                <Text style={styles.estimatedLabel}>Estimativa</Text>
+                <Text style={styles.estimatedValue}>{Math.ceil(estimatedTotalTime / 60)} min</Text>
+              </View>
+            </View>
+
+            {/* Controls */}
+            <View style={styles.controlsRow}>
+              <TouchableOpacity style={styles.sideBtn} onPress={prevExercise}>
+                <Ionicons name="chevron-back-circle-outline" size={40} color="#94a3b8" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.startBtn} onPress={toggleRunning}>
+                <Ionicons name={running ? "pause" : "play"} size={22} color="#0F172A" />
+                <Text style={styles.startTxt}>{running ? "Pausar" : "Start"}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.sideBtn} onPress={nextExerciseWithAnimation}>
+                <Ionicons name="chevron-forward-circle-outline" size={40} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Séries */}
+            <View style={{ marginTop: 14 }}>
+              {currentExercise?.sets?.map((set, idx) => (
+                <TouchableOpacity key={set.id} style={[styles.setRow, set.isCompleted && styles.setRowDone]} onPress={() => toggleSetComplete(idx)}>
+                  <View>
+                    <Text style={styles.setTitle}>Série {idx + 1}</Text>
+                    <Text style={styles.setSub}>{set.reps ?? 0} reps • {set.weight ?? 0} kg</Text>
+                  </View>
+
+                  {set.isCompleted ? (
+                    <Ionicons name="checkmark-circle" size={28} color="#22c55e" />
+                  ) : (
+                    <Ionicons name="ellipse-outline" size={26} color="#64748b" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </Animated.View>
+      </ScrollView>
+
+      {/* Modal de Descanso */}
+      <Modal visible={restModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Descanso</Text>
+            <Text style={styles.modalSub}>Próximo exercício em {restCountdown}s</Text>
+
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+              <TouchableOpacity style={styles.modalButton} onPress={() => { setRestModalVisible(false); nextExerciseWithAnimation(); }}>
+                <Text style={{ color: "#fff" }}>Pular</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#0B1220", borderWidth: 1, borderColor: "#17212a" }]} onPress={() => { setRestModalVisible(false); setRunning(false); }}>
+                <Text style={{ color: "#22c55e" }}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      )}
+      </Modal>
 
-      {/* footer control only when not fullscreen */}
-      {!fullscreen && (
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.finishBtn} onPress={() => {
-            cancelRest();
-            showToast('Treino finalizado manualmente');
-            router.back();
-          }}>
-            <Text style={styles.finishText}>Finalizar treino</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <Toast visible={toastVisible} message={toastMessage} />
+      {transitioning && <View style={styles.transitionOverlay} pointerEvents="none" />}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F172A' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, backgroundColor: '#0B1220' },
-  headerBtn: { padding: 6 },
-  headerTitle: { color: '#22C55E', fontWeight: '700', fontSize: 18 },
+  container: { flex: 1, backgroundColor: "#0F172A" },
+  notFound: { color: "#fff", padding: 16, textAlign: "center" },
 
-  progressWrap: { height: 6, backgroundColor: '#071025', marginHorizontal: 18, borderRadius: 6, overflow: 'hidden', marginTop: 8 },
-  progressFill: { height: 6, backgroundColor: '#22C55E', width: '100%', transform: [{ scaleX: 0 }], alignSelf: 'flex-start' },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "ios" ? 14 : 10,
+    backgroundColor: "#0B1220",
+    borderBottomWidth: 1,
+    borderBottomColor: "#121826",
+  },
 
-  card: { padding: 18, height: '100%' },
-  titleWrap: { marginBottom: 12 },
-  exerciseName: { color: '#E2E8F0', fontSize: 20, fontWeight: '700' },
-  subText: { color: '#94A3B8', fontSize: 13 },
+  title: { color: "#22c55e", fontWeight: "700", fontSize: 16 },
 
-  setsContainer: { marginTop: 8 },
-  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#0B1220' },
-  checkButton: { paddingRight: 6 },
-  setLabel: { width: 36, color: '#94a3b8', textAlign: 'center' },
-  setInput: { width: 88, backgroundColor: '#071025', color: '#E2E8F0', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, marginRight: 8, textAlign: 'center' },
+  topArea: { padding: 12 },
 
-  cardFooter: { position: 'absolute', bottom: 28, left: 18, right: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  navBtn: { padding: 8 },
-  progressText: { color: '#94a3b8' },
+  dotsRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  dot: { width: 10, height: 10, borderRadius: 10 },
+  dotActive: { backgroundColor: "#22c55e" },
+  dotInactive: { backgroundColor: "transparent", borderWidth: 1, borderColor: "#17323a" },
 
-  dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingVertical: 10 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E', marginHorizontal: 6 },
+  progressBarBackground: {
+    height: 6,
+    backgroundColor: "#071025",
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  progressBarFill: { height: 6, backgroundColor: "#22c55e" },
 
-  restOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(2,6,23,0.6)' },
-  restBox: { width: '84%', backgroundColor: '#071025', padding: 22, borderRadius: 12, alignItems: 'center' },
-  restTitle: { color: '#E2E8F0', fontSize: 18, fontWeight: '700', marginBottom: 6 },
-  restCounter: { color: '#22C55E', fontSize: 36, fontWeight: '800', marginBottom: 12 },
-  skipBtn: { backgroundColor: '#0B1220', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 8 },
-  skipText: { color: '#E2E8F0', fontWeight: '600' },
+  card: {
+    backgroundColor: "#0B1220",
+    borderRadius: 12,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#17212a",
+  },
 
-  footer: { padding: 12, alignItems: 'center', justifyContent: 'center' },
-  finishBtn: { backgroundColor: '#22C55E', paddingHorizontal: 36, paddingVertical: 12, borderRadius: 12 },
-  finishText: { color: '#071025', fontWeight: '700' },
+  cardHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
 
-  errorText: { color: '#F43F5E', padding: 16 },
+  exerciseName: { color: "#E2E8F0", fontSize: 20, fontWeight: "800" },
+  seriesInfo: { color: "#94a3b8", marginTop: 6 },
+
+  timerRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
+  timerLabel: { color: "#94a3b8" },
+  timerValue: { color: "#22c55e", fontSize: 28, fontWeight: "800" },
+
+  timerSmallLabel: { color: "#94a3b8", fontSize: 12 },
+  timerTotal: { color: "#E2E8F0", fontWeight: "700" },
+
+  estimatedLabel: { color: "#94a3b8", fontSize: 12 },
+  estimatedValue: { color: "#E2E8F0", fontWeight: "700" },
+
+  controlsRow: { flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 12 },
+
+  startBtn: {
+    backgroundColor: "#22c55e",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+  },
+  startTxt: { color: "#0F172A", fontWeight: "700" },
+
+  sideBtn: { justifyContent: "center", alignItems: "center" },
+
+  setRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: "#071025",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  setRowDone: { backgroundColor: "#083524" },
+
+  setTitle: { color: "#E2E8F0", fontWeight: "700" },
+  setSub: { color: "#94a3b8" },
+
+  modalOverlay: { flex: 1, backgroundColor: "rgba(2,6,23,0.6)", justifyContent: "center", alignItems: "center" },
+  modalBox: { width: "85%", backgroundColor: "#0B1220", borderRadius: 12, padding: 20, alignItems: "center", borderWidth: 1, borderColor: "#17212a" },
+  modalTitle: { color: "#E2E8F0", fontWeight: "800", fontSize: 18 },
+  modalSub: { color: "#94a3b8", marginTop: 8 },
+
+  modalButton: { backgroundColor: "#22c55e", padding: 12, borderRadius: 8 },
+
+  transitionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.25)",
+  },
 });
