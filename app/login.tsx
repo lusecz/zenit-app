@@ -1,14 +1,14 @@
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { login } from "../services/auth"; // usa o service
+import Toast from "react-native-toast-message";
+import { login } from "../services/auth";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -17,16 +17,78 @@ export default function LoginScreen() {
 
   async function handleLogin() {
     if (!email || !password) {
-      Alert.alert("Erro", "Preencha email e senha.");
+      Toast.show({
+        type: "error",
+        text1: "Campos vazios",
+        text2: "Preencha email e senha.",
+      });
       return;
     }
 
     setLoading(true);
+
     try {
-      await login(email, password); // ← aqui você usa o service
+      await login(email, password);
+
+      Toast.show({
+        type: "success",
+        text1: "Login realizado",
+        text2: "Bem-vindo de volta!",
+      });
+
       router.replace("/(tabs)");
     } catch (error: any) {
-      Alert.alert("Erro ao entrar", error.message);
+      console.log("Erro Firebase:", error);
+
+      let message = "Ocorreu um erro inesperado. Tente novamente.";
+
+      switch (error.code) {
+        case "auth/invalid-email":
+          message = "E-mail inválido. Verifique o formato.";
+          break;
+
+        case "auth/missing-email":
+          message = "Digite um e-mail para continuar.";
+          break;
+
+        case "auth/missing-password":
+          message = "Digite sua senha.";
+          break;
+
+        case "auth/invalid-credential":
+          message = "Credenciais inválidas. Verifique e-mail e senha.";
+          break;
+
+        case "auth/wrong-password":
+          message = "Senha incorreta.";
+          break;
+
+        case "auth/user-not-found":
+          message = "Nenhuma conta encontrada com este e-mail.";
+          break;
+
+        case "auth/user-disabled":
+          message = "Esta conta foi desativada.";
+          break;
+
+        case "auth/too-many-requests":
+          message = "Muitas tentativas. Tente novamente mais tarde.";
+          break;
+
+        case "auth/network-request-failed":
+          message = "Falha de conexão. Verifique sua internet.";
+          break;
+
+        default:
+          message = "Erro desconhecido: " + error.code;
+          break;
+      }
+
+      Toast.show({
+        type: "error",
+        text1: "Erro no login",
+        text2: message,
+      });
     } finally {
       setLoading(false);
     }
@@ -60,6 +122,9 @@ export default function LoginScreen() {
       <TouchableOpacity onPress={() => router.push("/register")}>
         <Text style={styles.link}>Criar conta</Text>
       </TouchableOpacity>
+
+      {/* Necessário para Toast funcionar */}
+      <Toast />
     </View>
   );
 }

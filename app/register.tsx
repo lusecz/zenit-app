@@ -1,13 +1,15 @@
+// app/register.tsx
 import { router } from "expo-router";
+import type { AuthError } from "firebase/auth";
 import React, { useState } from "react";
 import {
-  Alert,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import Toast from "react-native-toast-message";
 import { register } from "../services/auth";
 
 export default function RegisterScreen() {
@@ -17,19 +19,61 @@ export default function RegisterScreen() {
 
   async function handleRegister() {
     if (!email || !password) {
-      Alert.alert("Erro", "Preencha email e senha.");
+      Toast.show({
+        type: "error",
+        text1: "Campos obrigatórios",
+        text2: "Preencha email e senha.",
+      });
       return;
     }
 
     setLoading(true);
+
     try {
-      console.log("Registrando usuário com email:", email);
       await register(email, password);
-      Alert.alert("Sucesso", "Conta criada!");
-      console.log("Aqui");
+
+      Toast.show({
+        type: "success",
+        text1: "Conta criada",
+        text2: "Bem-vindo ao app!",
+      });
+
       router.replace("/(tabs)");
-    } catch (error) {
-      Alert.alert("Erro ao criar conta", "Verifique os dados informados.");
+    } catch (error: any) {
+      const authError = error as AuthError;
+
+      let msg = "Erro ao criar conta.";
+
+      switch (authError.code) {
+        case "auth/email-already-in-use":
+          msg = "Este email já está em uso.";
+          break;
+
+        case "auth/invalid-email":
+          msg = "O formato do email é inválido.";
+          break;
+
+        case "auth/operation-not-allowed":
+          msg = "Este tipo de login não está habilitado no Firebase.";
+          break;
+
+        case "auth/weak-password":
+          msg = "A senha deve ter pelo menos 6 caracteres.";
+          break;
+
+        case "auth/network-request-failed":
+          msg = "Falha de conexão. Verifique sua internet.";
+          break;
+
+        default:
+          msg = authError.message;
+      }
+
+      Toast.show({
+        type: "error",
+        text1: "Erro no registro",
+        text2: msg,
+      });
     } finally {
       setLoading(false);
     }
@@ -37,12 +81,13 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Criar conta</Text>
+      <Text style={styles.title}>Criar Conta</Text>
 
       <TextInput
         placeholder="Email"
         placeholderTextColor="#ccc"
         style={styles.input}
+        autoCapitalize="none"
         onChangeText={setEmail}
       />
 
@@ -56,13 +101,16 @@ export default function RegisterScreen() {
 
       <TouchableOpacity style={styles.button} onPress={handleRegister}>
         <Text style={styles.buttonText}>
-          {loading ? "Carregando..." : "Cadastrar"}
+          {loading ? "Criando..." : "Registrar"}
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/login")}>
+      <TouchableOpacity onPress={() => router.replace("/login")}>
         <Text style={styles.link}>Já tenho conta</Text>
       </TouchableOpacity>
+
+      {/* Componente necessário para mostrar os toasts */}
+      <Toast />
     </View>
   );
 }
