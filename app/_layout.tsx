@@ -1,64 +1,81 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+// app/_layout.tsx
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
+import { useFonts } from "expo-font";
+import { Stack, router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import "react-native-reanimated";
+
+import { RoutineProvider } from "@/context/RoutineContext";
+import { WorkoutProvider } from "@/context/WorkoutContext";
+import { WorkoutHistoryProvider } from "@/context/WorkoutHistoryContext";
+import { useColorScheme } from "@/hooks/useColorScheme";
+
+import { AuthContext, AuthProvider } from "@/context/AuthContext";
+import { useContext, useEffect } from "react";
+import { ActivityIndicator, View } from "react-native";
+
+import Toast from "react-native-toast-message";
+import { toastConfig } from "../toastConfig"; // <- arquivo que criamos
+
+function NavigationDecider() {
+  const { user, loading } = useContext(AuthContext);
+
+  useEffect(() => {
+    if (!loading) {
+      if (user) router.replace("/(tabs)");
+      else router.replace("/login");
+    }
+  }, [loading, user]);
+
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#000",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color="#22C55E" />
+      </View>
+    );
+  }
+
+  return <Stack screenOptions={{ headerShown: false }} />;
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
   const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
-  if (!loaded) {
-    return null;
-  }
+  if (!loaded) return null;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        
-        {/* 1. ROTA PRINCIPAL: Tela de Boas-Vindas */}
-        <Stack.Screen 
-          name="index" 
-          options={{ 
-            headerShown: false, 
-          }} 
-        />
-        
-        {/* 2. ROTA DE LOGIN */}
-        <Stack.Screen 
-          name="login" // CRÍTICO: Rota para app/login.tsx
-          options={{ 
-            headerShown: false, 
-          }} 
-        />
-        
-        {/* 3. ROTA DE CADASTRO */}
-        <Stack.Screen 
-          name="cadastro" // CRÍTICO: Rota para app/cadastro.tsx
-          options={{ 
-            headerShown: false, 
-          }} 
-        />
-        
-        {/* 4. ROTA DA LISTAGEM DE EXERCÍCIOS */}
-        <Stack.Screen 
-          name="exercise-list" 
-          options={{ 
-            headerShown: false, 
-          }} 
-        />
+    <AuthProvider>
+      <RoutineProvider>
+        <WorkoutProvider>
+          <WorkoutHistoryProvider>
+            <ThemeProvider
+              value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+            >
+              <NavigationDecider />
+              <StatusBar style="auto" />
 
-        {/* 5. ROTAS PÓS-LOGIN: O GRUPO DE ABAS */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        
-        {/* 6. Rota de Erro */}
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+              {/* TOAST GLOBAL */}
+              <Toast config={toastConfig} />
+            </ThemeProvider>
+          </WorkoutHistoryProvider>
+        </WorkoutProvider>
+      </RoutineProvider>
+    </AuthProvider>
   );
 }
