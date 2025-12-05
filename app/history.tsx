@@ -1,18 +1,18 @@
 // /app/history.tsx
-import React, { useContext, useEffect, useRef } from "react";
-import {
-  SafeAreaView,
-  Text,
-  View,
-  StyleSheet,
-  ScrollView,
-  Animated,
-  Easing,
-  TouchableOpacity,
-} from "react-native";
+import AppLayout from "@/components/AppLayout";
+import { WorkoutHistoryContext } from "@/context/WorkoutHistoryContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { WorkoutHistoryContext } from "@/context/WorkoutHistoryContext";
+import React, { useContext, useEffect, useRef } from "react";
+import {
+    Animated,
+    Easing,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -43,7 +43,7 @@ export default function HistoryScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <AppLayout style={styles.container}>
       {/* HEADER COM VOLTAR */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -88,12 +88,12 @@ export default function HistoryScreen() {
           </Animated.View>
         ))}
       </ScrollView>
-    </SafeAreaView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0F172A" },
+  container: { backgroundColor: "#0F172A" },
 
   header: {
     flexDirection: "row",

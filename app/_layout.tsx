@@ -1,14 +1,15 @@
 // app/_layout.tsx
 
 import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
+    DarkTheme,
+    DefaultTheme,
+    ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { RoutineProvider } from "@/context/RoutineContext";
 import { WorkoutProvider } from "@/context/WorkoutContext";
@@ -60,22 +61,24 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <AuthProvider>
-      <RoutineProvider>
-        <WorkoutProvider>
-          <WorkoutHistoryProvider>
-            <ThemeProvider
-              value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-            >
-              <NavigationDecider />
-              <StatusBar style="auto" />
+    <SafeAreaProvider>
+      <AuthProvider>
+        <RoutineProvider>
+          <WorkoutProvider>
+            <WorkoutHistoryProvider>
+              <ThemeProvider
+                value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+              >
+                <NavigationDecider />
+                <StatusBar style="light" />
 
-              {/* TOAST GLOBAL */}
-              <Toast config={toastConfig} />
-            </ThemeProvider>
-          </WorkoutHistoryProvider>
-        </WorkoutProvider>
-      </RoutineProvider>
-    </AuthProvider>
+                {/* TOAST GLOBAL */}
+                <Toast config={toastConfig} />
+              </ThemeProvider>
+            </WorkoutHistoryProvider>
+          </WorkoutProvider>
+        </RoutineProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

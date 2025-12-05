@@ -1,11 +1,12 @@
-import React, { useContext, useMemo, useState } from "react";
-import { Alert, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import AppLayout from "@/components/AppLayout";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import Toast from "@/components/Toast";
 import { RoutineContext } from "@/context/RoutineContext";
 import { isValidName, sanitizeNumber } from "@/helpers/validators";
-import Toast from "@/components/Toast";
-import { ConfirmModal } from "@/components/ConfirmModal";
 import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useContext, useMemo, useState } from "react";
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export default function EditRoutineScreen() {
   const { routineId } = useLocalSearchParams<{ routineId?: string }>();
@@ -29,9 +30,9 @@ export default function EditRoutineScreen() {
 
   if (!routine) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>Rotina não encontrada.</Text>
-      </SafeAreaView>
+      <AppLayout style={styles.container}>
+        <Text style={styles.error}>Rotina não encontrada.</Text>
+      </AppLayout>
     );
   }
 
@@ -69,7 +70,7 @@ export default function EditRoutineScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <AppLayout style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back-circle" size={28} color="#94a3b8" />
@@ -159,12 +160,12 @@ export default function EditRoutineScreen() {
       <ConfirmModal visible={confirmVisible} message={"Confirma exclusão?"} onConfirm={doDelete} onCancel={() => setConfirmVisible(false)} />
 
       <Toast visible={toastVisible} message={toastMessage} />
-    </SafeAreaView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#071026" },
+  container: { backgroundColor: "#071026" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 12, backgroundColor: "#081426" },
   title: { color: "#22C55E", fontWeight: "700", fontSize: 18 },
   content: { padding: 12 },

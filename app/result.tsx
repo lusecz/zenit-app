@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import AppLayout from "@/components/AppLayout";
 import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 // Mobile (iOS/Android)
 import LottieMobile from "lottie-react-native";
@@ -23,7 +24,7 @@ export default function ResultScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <AppLayout style={styles.container}>
 
       {/* CONFETTI */}
       {Platform.OS === "web" ? (
@@ -86,7 +87,7 @@ export default function ResultScreen() {
         </TouchableOpacity>
 
       </View>
-    </SafeAreaView>
+    </AppLayout>
   );
 }
 
@@ -102,7 +103,6 @@ const styles = StyleSheet.create({
   },
 
   container: {
-    flex: 1,
     backgroundColor: "#0F172A",
     justifyContent: "center",
     padding: 20,

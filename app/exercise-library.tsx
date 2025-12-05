@@ -1,25 +1,24 @@
 // app/exercise-library.tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  Linking,
-  Image,
-  Animated,
-  Easing,
-  Platform,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+    Animated,
+    Easing,
+    Image,
+    Linking,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
-import { EXERCISE_LIBRARY_GROUPS } from '@/data/exercise-library-groups';
-import { RoutineContext } from '@/context/RoutineContext';
+import AppLayout from '@/components/AppLayout';
 import Toast from '@/components/Toast';
+import { RoutineContext } from '@/context/RoutineContext';
+import { EXERCISE_LIBRARY_GROUPS } from '@/data/exercise-library-groups';
 
 // Helper para criar thumbnails do YouTube
 function getYoutubeThumbnail(url: string | undefined) {
@@ -181,7 +180,7 @@ export default function ExerciseLibraryScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <AppLayout style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push("/(tabs)")}>
@@ -301,12 +300,12 @@ export default function ExerciseLibraryScreen() {
       </Animated.View>
 
       <Toast visible={toastVisible} message={toastMessage} />
-    </SafeAreaView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#071026' },
+  container: { backgroundColor: '#071026' },
 
   header: {
     flexDirection: 'row',

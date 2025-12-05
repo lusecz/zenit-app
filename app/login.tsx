@@ -1,11 +1,11 @@
+import AppLayout from "@/components/AppLayout";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { login } from "../services/auth";
@@ -95,7 +95,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <AppLayout style={styles.container}>
       <Text style={styles.title}>Entrar</Text>
 
       <TextInput
@@ -125,13 +125,12 @@ export default function LoginScreen() {
 
       {/* Necessário para Toast funcionar */}
       <Toast />
-    </View>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: "#000",
     padding: 20,
     justifyContent: "center",

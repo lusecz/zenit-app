@@ -1,22 +1,21 @@
-import React, { useEffect, useMemo, useRef, useState, useContext } from "react";
-import {
-  SafeAreaView,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Animated,
-  Easing,
-  StatusBar,
-  Platform,
-  Modal,
-  Alert,
-  Linking,
-  Image,
-} from "react-native";
+import AppLayout from "@/components/AppLayout";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+    Alert,
+    Animated,
+    Image,
+    Linking,
+    Modal,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from "react-native";
 
 import { RoutineContext } from "@/context/RoutineContext";
 import { WorkoutHistoryContext } from "@/context/WorkoutHistoryContext";
@@ -65,12 +64,12 @@ export default function ExecuteWorkoutScreen() {
 
   if (!routine) {
     return (
-      <SafeAreaView style={styles.container}>
+      <AppLayout style={styles.container}>
         <StatusBar barStyle="light-content" />
         <View style={{ padding: 20 }}>
           <Text style={{ color: "#94a3b8" }}>Rotina não encontrada.</Text>
         </View>
-      </SafeAreaView>
+      </AppLayout>
     );
   }
 
@@ -384,7 +383,7 @@ export default function ExecuteWorkoutScreen() {
   })();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <AppLayout style={styles.container}>
       <StatusBar barStyle="light-content" />
 
       <View style={styles.header}>
@@ -544,12 +543,12 @@ export default function ExecuteWorkoutScreen() {
       </Modal>
 
       {transitioning && <View style={styles.transitionOverlay} pointerEvents="none" />}
-    </SafeAreaView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0F172A" },
+  container: { backgroundColor: "#0F172A" },
 
   header: {
     flexDirection: "row",

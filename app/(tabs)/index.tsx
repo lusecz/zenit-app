@@ -3,17 +3,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated,
-  Modal,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
+import AppLayout from "@/components/AppLayout";
 import { RoutineContext } from "@/context/RoutineContext";
 import { WorkoutHistoryContext } from "@/context/WorkoutHistoryContext";
 import { logout } from "@/services/auth";
@@ -85,7 +85,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <AppLayout style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push("/routines" as any)}>
@@ -209,13 +209,12 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: "#071026",
   },
 

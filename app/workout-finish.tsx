@@ -1,5 +1,6 @@
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from "react-native";
+import AppLayout from "@/components/AppLayout";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { StyleSheet, Text, TouchableOpacity } from "react-native";
 
 export default function WorkoutFinish() {
   const router = useRouter();
@@ -13,7 +14,7 @@ export default function WorkoutFinish() {
   })();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <AppLayout style={styles.container}>
       <Text style={styles.title}>🔥 Parabéns! Treino finalizado</Text>
       <Text style={styles.time}>Tempo total: {formatted}</Text>
 
@@ -23,13 +24,12 @@ export default function WorkoutFinish() {
       >
         <Text style={styles.buttonText}>Voltar ao início</Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: "#0F172A",
     justifyContent: "center",
     alignItems: "center",

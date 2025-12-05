@@ -1,19 +1,19 @@
-import React, { useContext, useState } from "react";
-import {
-  FlatList,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from "react-native";
-import { useRouter } from "expo-router";
+import AppLayout from "@/components/AppLayout";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import Toast from "@/components/Toast";
 import { RoutineContext } from "@/context/RoutineContext";
 import { isValidName } from "@/helpers/validators";
-import Toast from "@/components/Toast";
-import { ConfirmModal } from "@/components/ConfirmModal";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React, { useContext, useState } from "react";
+import {
+    FlatList,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from "react-native";
 
 export default function RoutinesScreen() {
   const router = useRouter();
@@ -87,9 +87,9 @@ export default function RoutinesScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <AppLayout style={styles.container}>
         <Text style={styles.loading}>Carregando rotinas...</Text>
-      </SafeAreaView>
+      </AppLayout>
     );
   }
 
@@ -165,7 +165,7 @@ export default function RoutinesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <AppLayout style={styles.container}>
       {/* ---------------- HEADER COM BOTÃO DE VOLTAR ---------------- */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -209,12 +209,12 @@ export default function RoutinesScreen() {
       />
 
       <Toast visible={toastVisible} message={toastMessage} />
-    </SafeAreaView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#071026" },
+  container: { backgroundColor: "#071026" },
 
   header: {
     flexDirection: "row",

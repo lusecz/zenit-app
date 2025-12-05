@@ -1,13 +1,13 @@
 // app/register.tsx
+import AppLayout from "@/components/AppLayout";
 import { router } from "expo-router";
 import type { AuthError } from "firebase/auth";
 import React, { useState } from "react";
 import {
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { register } from "../services/auth";
@@ -80,7 +80,7 @@ export default function RegisterScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <AppLayout style={styles.container}>
       <Text style={styles.title}>Criar Conta</Text>
 
       <TextInput
@@ -111,13 +111,12 @@ export default function RegisterScreen() {
 
       {/* Componente necessário para mostrar os toasts */}
       <Toast />
-    </View>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: "#000",
     padding: 20,
     justifyContent: "center",

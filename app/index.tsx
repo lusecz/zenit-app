@@ -1,19 +1,19 @@
 // app/index.tsx
+import AppLayout from "@/components/AppLayout";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 export default function HomeScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <AppLayout style={styles.container}>
       {/* Top Header minimalista */}
       <View style={styles.header}>
         <Ionicons name="fitness" size={28} color="#22c55e" />
@@ -57,13 +57,12 @@ export default function HomeScreen() {
           © 2025 ZenitApp. Todos os direitos reservados.
         </Text>
       </View>
-    </SafeAreaView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: "#0F172A",
     paddingHorizontal: 20,
     justifyContent: "space-between",

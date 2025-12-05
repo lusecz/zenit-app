@@ -1,10 +1,11 @@
-import React, { useContext, useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { RoutineContext } from '@/context/RoutineContext';
+import AppLayout from '@/components/AppLayout';
 import Toast from '@/components/Toast';
+import { RoutineContext } from '@/context/RoutineContext';
+import { isValidName, sanitizeNumber } from '@/helpers/validators';
 import { Ionicons } from '@expo/vector-icons';
-import { sanitizeNumber, isValidName } from '@/helpers/validators';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useContext, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function WorkoutsScreen() {
   const { routineId } = useLocalSearchParams<{ routineId?: string }>();
@@ -38,9 +39,9 @@ export default function WorkoutsScreen() {
 
   if (!routine) {
     return (
-      <SafeAreaView style={styles.container}>
+      <AppLayout style={styles.container}>
         <Text style={styles.error}>Rotina não encontrada.</Text>
-      </SafeAreaView>
+      </AppLayout>
     );
   }
 
@@ -57,7 +58,7 @@ export default function WorkoutsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <AppLayout style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -158,12 +159,12 @@ export default function WorkoutsScreen() {
       </ScrollView>
 
       <Toast visible={toastVisible} message={toastMessage} />
-    </SafeAreaView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F172A' },
+  container: { backgroundColor: '#0F172A' },
 
   header: {
     flexDirection: 'row',
