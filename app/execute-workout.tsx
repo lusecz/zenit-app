@@ -302,9 +302,47 @@ export default function ExecuteWorkoutScreen() {
         Animated.timing(translateY, { toValue: 12, duration: 200, useNativeDriver: true }),
       ]).start(() => {
         try {
+          // Calcular estatísticas antes de finalizar
+          const totalExercises = exercises.length;
+          const totalSets = exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+          const completedSets = exercises.reduce(
+            (sum, ex) => sum + ex.sets.filter((s) => s.isCompleted).length,
+            0
+          );
+          
+          // Calcular volume total (peso x reps das séries completadas)
+          const totalVolume = exercises.reduce((sum, ex) => {
+            return sum + ex.sets.reduce((setSum, set) => {
+              if (set.isCompleted) {
+                return setSum + (set.weight * set.reps);
+              }
+              return setSum;
+            }, 0);
+          }, 0);
+          
+          const totalTime = currentSession?.duration || 0;
+          const minutes = Math.floor(totalTime / 60);
+          const seconds = totalTime % 60;
+          const timeFormatted = `${minutes}min ${seconds}s`;
+
+          const resultData = {
+            routineName: routine?.name || "Treino",
+            totalTime: timeFormatted,
+            totalExercises: totalExercises,
+            totalSets: completedSets,
+            totalVolume: `${totalVolume} kg`,
+          };
+
           finishWorkoutSession();
-        } catch {}
-        router.replace("/result");
+
+          router.replace({
+            pathname: "/result",
+            params: { data: JSON.stringify(resultData) }
+          });
+        } catch (error) {
+          console.error("Erro ao finalizar treino:", error);
+          router.replace("/result");
+        }
       });
       return;
     }

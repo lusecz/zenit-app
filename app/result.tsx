@@ -70,6 +70,11 @@ export default function ResultScreen() {
           <Text style={styles.infoValue}>{result?.totalSets}</Text>
         </View>
 
+        <View style={styles.infoBox}>
+          <Text style={styles.infoLabel}>Volume total:</Text>
+          <Text style={styles.infoValue}>{result?.totalVolume}</Text>
+        </View>
+
         <View style={{ height: 20 }} />
 
         <TouchableOpacity
