@@ -25,23 +25,41 @@ import { EXERCISE_LIBRARY } from "@/data/exercise-library";
 
 // Importações condicionais para notificações (não funciona no Expo Go)
 let Notifications: any = null;
+
+// Silenciar erros de notificação no Expo Go
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+console.error = (...args: any[]) => {
+  if (args[0]?.includes?.('expo-notifications')) return;
+  originalConsoleError(...args);
+};
+console.warn = (...args: any[]) => {
+  if (args[0]?.includes?.('expo-notifications')) return;
+  originalConsoleWarn(...args);
+};
+
 try {
   Notifications = require('expo-notifications');
   // Configurar comportamento das notificações apenas se disponível
   if (Notifications) {
     // Mostrar notificações sempre, incluindo quando o app está em foreground
     Notifications.setNotificationHandler({
-      handleNotification: async (notification: any) => {
-        return {
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: false,
-        };
-      },
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
     });
   }
 } catch (error) {
-  console.log('Notificações não disponíveis no Expo Go');
+  // Silenciar completamente qualquer erro de notificações
+  Notifications = null;
+} finally {
+  // Restaurar console após carregar notificações
+  console.error = originalConsoleError;
+  console.warn = originalConsoleWarn;
 }
 
 type ExerciseSetLocal = {
@@ -180,6 +198,7 @@ export default function ExecuteWorkoutScreen() {
   // Estado para editar tempo de descanso
   const [editingRestTime, setEditingRestTime] = useState(false);
   const [customRestTime, setCustomRestTime] = useState<number | null>(null);
+  const [activeNotifications, setActiveNotifications] = useState<Map<string, string>>(new Map());
 
   const progAnim = useAnimatedValue(0);
   const fadeAnim = useAnimatedValue(1);
@@ -190,19 +209,25 @@ export default function ExecuteWorkoutScreen() {
     setTotalRunning(true);
   }, []);
 
-  // Solicitar permissão para notificações (apenas se disponível)
+  // Configurar permissões e canal de notificação (apenas se disponível)
   useEffect(() => {
     if (!Notifications) return;
-    (async () => {
+    const configurateNotifications = async () => {
       try {
-        const { status } = await Notifications.requestPermissionsAsync();
-        if (status !== 'granted') {
-          console.log('Permissão de notificação negada');
+        if (Platform.OS === 'android') {
+          await Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+          });
         }
+        await Notifications.requestPermissionsAsync();
       } catch (error) {
-        console.log('Erro ao solicitar permissão de notificação');
+        console.log('Erro ao configurar notificações');
       }
-    })();
+    };
+    configurateNotifications();
   }, []);
 
   // Timer de descanso com lógica de background usando timestamp
@@ -225,30 +250,48 @@ export default function ExecuteWorkoutScreen() {
       notificationScheduledRef.current = false;
     }
 
+    // Agendar notificação no início do descanso
+    if (Notifications && !notificationScheduledRef.current) {
+      notificationScheduledRef.current = true;
+      const exerciseName = exercises[exerciseIndex]?.name || 'exercício';
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🔔 Descanso Finalizado',
+          body: `Vamos para a próxima!`,
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: restCountdown,
+          repeats: false,
+        },
+      }).then((notificationId) => {
+        setActiveNotifications(prev => new Map(prev).set(exercises[exerciseIndex]?.id || '', notificationId));
+      }).catch(() => {});
+    }
+
     // Iniciar timer de descanso baseado em timestamp real
     restTimerRef.current = setInterval(() => {
       const currentTime = Date.now();
       const remaining = Math.ceil((restEndTimeRef.current! - currentTime) / 1000);
       
       if (remaining <= 0) {
-        // Disparar notificação quando o descanso termina
-        if (Notifications && !notificationScheduledRef.current) {
-          notificationScheduledRef.current = true;
-          Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'Descanso finalizado! 💪',
-              body: 'Hora de continuar seu treino!',
-              sound: true,
-              priority: Notifications.AndroidNotificationPriority.HIGH,
-            },
-            trigger: null, // Disparar imediatamente
-          }).catch(() => {});
+        // Limpar notificação do mapa (já foi disparada)
+        const currentExId = exercises[exerciseIndex]?.id;
+        if (currentExId) {
+          setActiveNotifications(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(currentExId);
+            return newMap;
+          });
         }
         
         setRestBarVisible(false);
         setRestCountdown(0);
         restStartTimeRef.current = null;
         restEndTimeRef.current = null;
+        notificationScheduledRef.current = false;
         
         // Ir para próximo exercício se necessário
         if (shouldGoToNextExercise.current) {
@@ -277,6 +320,16 @@ export default function ExecuteWorkoutScreen() {
         const remaining = Math.ceil((restEndTimeRef.current - currentTime) / 1000);
         
         if (remaining <= 0) {
+          // Limpar notificação do mapa (já foi disparada)
+          const currentExId = exercises[exerciseIndex]?.id;
+          if (currentExId) {
+            setActiveNotifications(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(currentExId);
+              return newMap;
+            });
+          }
+          
           setRestBarVisible(false);
           setRestCountdown(0);
           restStartTimeRef.current = null;
@@ -351,6 +404,43 @@ export default function ExecuteWorkoutScreen() {
     const s = totalSeconds % 60;
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }, [totalSeconds]);
+
+  const cancelRestNotification = (exerciseId: string) => {
+    if (!Notifications) return;
+    const notificationId = activeNotifications.get(exerciseId);
+    if (notificationId) {
+      Notifications.cancelScheduledNotificationAsync(notificationId);
+      setActiveNotifications(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(exerciseId);
+        return newMap;
+      });
+    }
+  };
+
+  const scheduleRestNotification = async (seconds: number, exerciseName: string, exerciseId: string) => {
+    if (!Notifications || seconds <= 0) return;
+    
+    try {
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🔔 Descanso Finalizado!',
+          body: `Tempo de descanso de ${seconds}s terminou. Próxima série de ${exerciseName}!`,
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: seconds,
+          repeats: false,
+        },
+      });
+      
+      setActiveNotifications(prev => new Map(prev).set(exerciseId, notificationId));
+    } catch (error) {
+      // Silenciar erros de notificação
+    }
+  };
 
   const persistExerciseState = (next: ExerciseLocal[]) => {
     setExercises(next);
@@ -767,15 +857,26 @@ export default function ExecuteWorkoutScreen() {
               <View style={styles.restBarContent}>
                 <TouchableOpacity
                   style={styles.restBarButton}
-                  onPress={() => {
+                  onPress={async () => {
                     const newTime = Math.max(0, restCountdown - 15);
+                    const currentExId = exercises[exerciseIndex]?.id;
+                    const exerciseName = exercises[exerciseIndex]?.name || 'exercício';
+                    
+                    // Cancelar notificação agendada
+                    if (currentExId) cancelRestNotification(currentExId);
+                    
                     // Atualizar timestamps
                     const now = Date.now();
                     restStartTimeRef.current = now;
                     restEndTimeRef.current = now + (newTime * 1000);
                     setRestCountdown(newTime);
-                    // Resetar flag de notificação
-                    notificationScheduledRef.current = false;
+                    
+                    // Reagendar notificação com novo tempo
+                    if (currentExId && newTime > 0) {
+                      await scheduleRestNotification(newTime, exerciseName, currentExId);
+                    }
+                    
+                    notificationScheduledRef.current = true;
                   }}
                 >
                   <Ionicons name="remove-circle" size={24} color="#ef4444" />
@@ -789,15 +890,26 @@ export default function ExecuteWorkoutScreen() {
 
                 <TouchableOpacity
                   style={styles.restBarButton}
-                  onPress={() => {
+                  onPress={async () => {
                     const newTime = restCountdown + 15;
+                    const currentExId = exercises[exerciseIndex]?.id;
+                    const exerciseName = exercises[exerciseIndex]?.name || 'exercício';
+                    
+                    // Cancelar notificação agendada
+                    if (currentExId) cancelRestNotification(currentExId);
+                    
                     // Atualizar timestamps
                     const now = Date.now();
                     restStartTimeRef.current = now;
                     restEndTimeRef.current = now + (newTime * 1000);
                     setRestCountdown(newTime);
-                    // Resetar flag de notificação
-                    notificationScheduledRef.current = false;
+                    
+                    // Reagendar notificação com novo tempo
+                    if (currentExId) {
+                      await scheduleRestNotification(newTime, exerciseName, currentExId);
+                    }
+                    
+                    notificationScheduledRef.current = true;
                   }}
                 >
                   <Ionicons name="add-circle" size={24} color="#22c55e" />
@@ -808,6 +920,10 @@ export default function ExecuteWorkoutScreen() {
               <TouchableOpacity
                 style={styles.restBarSkipButton}
                 onPress={() => {
+                  // Cancelar notificação agendada
+                  const currentExId = exercises[exerciseIndex]?.id;
+                  if (currentExId) cancelRestNotification(currentExId);
+                  
                   setRestBarVisible(false);
                   setRestCountdown(0);
                   restStartTimeRef.current = null;
