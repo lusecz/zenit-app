@@ -92,7 +92,7 @@ export default function HomeScreen() {
           <Ionicons name="menu" size={26} color="#E2E8F0" />
         </TouchableOpacity>
 
-        <Text style={styles.logo}>Zenit</Text>
+        <Text style={styles.logo}>ZenitApp</Text>
 
         <TouchableOpacity onPress={handleLogout}>
           <Ionicons name="log-out" size={30} color="#E2E8F0" />

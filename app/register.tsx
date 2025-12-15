@@ -4,10 +4,12 @@ import { router } from "expo-router";
 import type { AuthError } from "firebase/auth";
 import React, { useState } from "react";
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  View,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { register } from "../services/auth";
@@ -35,7 +37,7 @@ export default function RegisterScreen() {
       Toast.show({
         type: "success",
         text1: "Conta criada",
-        text2: "Bem-vindo ao app!",
+        text2: "Bem-vindo ao ZenitApp!",
       });
 
       router.replace("/(tabs)");
@@ -48,30 +50,22 @@ export default function RegisterScreen() {
         case "auth/email-already-in-use":
           msg = "Este email já está em uso.";
           break;
-
         case "auth/invalid-email":
           msg = "O formato do email é inválido.";
           break;
-
-        case "auth/operation-not-allowed":
-          msg = "Este tipo de login não está habilitado no Firebase.";
-          break;
-
         case "auth/weak-password":
           msg = "A senha deve ter pelo menos 6 caracteres.";
           break;
-
         case "auth/network-request-failed":
           msg = "Falha de conexão. Verifique sua internet.";
           break;
-
         default:
           msg = authError.message;
       }
 
       Toast.show({
         type: "error",
-        text1: "Erro no registro",
+        text1: "Erro no cadastro",
         text2: msg,
       });
     } finally {
@@ -81,35 +75,49 @@ export default function RegisterScreen() {
 
   return (
     <AppLayout style={styles.container}>
-      <Text style={styles.title}>Criar Conta</Text>
+      {/* LOGO */}
+      <View style={styles.logoBox}>
+        <Image
+          source={require("../assets/images/zenit_logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.appName}>ZenitApp</Text>
+      </View>
 
+      {/* TÍTULO */}
+      <Text style={styles.title}>Criar conta</Text>
+
+      {/* INPUTS */}
       <TextInput
         placeholder="Email"
-        placeholderTextColor="#ccc"
+        placeholderTextColor="#9ca3af"
         style={styles.input}
         autoCapitalize="none"
+        keyboardType="email-address"
         onChangeText={setEmail}
       />
 
       <TextInput
         placeholder="Senha"
-        placeholderTextColor="#ccc"
+        placeholderTextColor="#9ca3af"
         secureTextEntry
         style={styles.input}
         onChangeText={setPassword}
       />
 
+      {/* BOTÃO */}
       <TouchableOpacity style={styles.button} onPress={handleRegister}>
         <Text style={styles.buttonText}>
           {loading ? "Criando..." : "Registrar"}
         </Text>
       </TouchableOpacity>
 
+      {/* LINK */}
       <TouchableOpacity onPress={() => router.replace("/login")}>
         <Text style={styles.link}>Já tenho conta</Text>
       </TouchableOpacity>
 
-      {/* Componente necessário para mostrar os toasts */}
       <Toast />
     </AppLayout>
   );
@@ -117,44 +125,66 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#000",
+    backgroundColor: "#071026",
     padding: 20,
     justifyContent: "center",
   },
-  title: {
-    fontSize: 32,
-    color: "#fff",
-    fontWeight: "700",
-    textAlign: "center",
+
+  logoBox: {
+    alignItems: "center",
     marginBottom: 30,
   },
+
+  logo: {
+    width: 80,
+    height: 80,
+  },
+
+  appName: {
+    marginTop: 8,
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#22c55e",
+  },
+
+  title: {
+    fontSize: 28,
+    color: "#E2E8F0",
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+
   input: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "#081426",
     borderWidth: 1,
-    borderColor: "#444",
-    padding: 15,
-    borderRadius: 10,
-    color: "#fff",
+    borderColor: "#0f1a28",
+    padding: 14,
+    borderRadius: 12,
+    color: "#E2E8F0",
     fontSize: 16,
-    marginBottom: 15,
+    marginBottom: 14,
   },
+
   button: {
-    backgroundColor: "#22C55E",
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 10,
+    backgroundColor: "#22c55e",
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 6,
   },
+
   buttonText: {
-    color: "#fff",
+    color: "#0F172A",
     fontSize: 18,
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: "800",
   },
+
   link: {
-    color: "#22C55E",
+    color: "#22c55e",
     marginTop: 20,
     textAlign: "center",
     fontSize: 16,
-    textDecorationLine: "underline",
+    fontWeight: "600",
   },
 });

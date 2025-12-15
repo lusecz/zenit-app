@@ -78,7 +78,7 @@ export default function LoginScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.appName}>Zenit</Text>
+        <Text style={styles.appName}>ZenitApp</Text>
       </View>
 
       {/* Card */}
