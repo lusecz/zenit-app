@@ -2,10 +2,12 @@ import AppLayout from "@/components/AppLayout";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  Image,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { login } from "../services/auth";
@@ -38,50 +40,23 @@ export default function LoginScreen() {
 
       router.replace("/(tabs)");
     } catch (error: any) {
-      console.log("Erro Firebase:", error);
-
-      let message = "Ocorreu um erro inesperado. Tente novamente.";
+      let message = "Ocorreu um erro inesperado.";
 
       switch (error.code) {
         case "auth/invalid-email":
-          message = "E-mail inválido. Verifique o formato.";
+          message = "E-mail inválido.";
           break;
-
-        case "auth/missing-email":
-          message = "Digite um e-mail para continuar.";
-          break;
-
-        case "auth/missing-password":
-          message = "Digite sua senha.";
-          break;
-
-        case "auth/invalid-credential":
-          message = "Credenciais inválidas. Verifique e-mail e senha.";
-          break;
-
         case "auth/wrong-password":
           message = "Senha incorreta.";
           break;
-
         case "auth/user-not-found":
-          message = "Nenhuma conta encontrada com este e-mail.";
+          message = "Usuário não encontrado.";
           break;
-
-        case "auth/user-disabled":
-          message = "Esta conta foi desativada.";
-          break;
-
-        case "auth/too-many-requests":
-          message = "Muitas tentativas. Tente novamente mais tarde.";
-          break;
-
         case "auth/network-request-failed":
-          message = "Falha de conexão. Verifique sua internet.";
+          message = "Falha de conexão.";
           break;
-
         default:
-          message = "Erro desconhecido: " + error.code;
-          break;
+          message = error.code ?? message;
       }
 
       Toast.show({
@@ -96,34 +71,47 @@ export default function LoginScreen() {
 
   return (
     <AppLayout style={styles.container}>
-      <Text style={styles.title}>Entrar</Text>
+      {/* Logo */}
+      <View style={styles.logoBox}>
+        <Image
+          source={require("@/assets/images/zenit_logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.appName}>ZenitApp</Text>
+      </View>
 
-      <TextInput
-        placeholder="Email"
-        placeholderTextColor="#ccc"
-        style={styles.input}
-        onChangeText={setEmail}
-      />
+      {/* Card */}
+      <View style={styles.card}>
+        <Text style={styles.title}>Entrar</Text>
 
-      <TextInput
-        placeholder="Senha"
-        placeholderTextColor="#ccc"
-        secureTextEntry
-        style={styles.input}
-        onChangeText={setPassword}
-      />
+        <TextInput
+          placeholder="Email"
+          placeholderTextColor="#94a3b8"
+          style={styles.input}
+          autoCapitalize="none"
+          onChangeText={setEmail}
+        />
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>
-          {loading ? "Carregando..." : "Acessar"}
-        </Text>
-      </TouchableOpacity>
+        <TextInput
+          placeholder="Senha"
+          placeholderTextColor="#94a3b8"
+          secureTextEntry
+          style={styles.input}
+          onChangeText={setPassword}
+        />
 
-      <TouchableOpacity onPress={() => router.push("/register")}>
-        <Text style={styles.link}>Criar conta</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+          <Text style={styles.buttonText}>
+            {loading ? "Carregando..." : "Acessar"}
+          </Text>
+        </TouchableOpacity>
 
-      {/* Necessário para Toast funcionar */}
+        <TouchableOpacity onPress={() => router.push("/register")}>
+          <Text style={styles.link}>Criar conta</Text>
+        </TouchableOpacity>
+      </View>
+
       <Toast />
     </AppLayout>
   );
@@ -131,44 +119,74 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#000",
-    padding: 20,
+    backgroundColor: "#071026",
+    paddingHorizontal: 24,
     justifyContent: "center",
   },
-  title: {
-    fontSize: 32,
-    color: "#fff",
-    fontWeight: "700",
-    textAlign: "center",
+
+  logoBox: {
+    alignItems: "center",
     marginBottom: 30,
   },
-  input: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderWidth: 1,
-    borderColor: "#444",
-    padding: 15,
-    borderRadius: 10,
-    color: "#fff",
-    fontSize: 16,
-    marginBottom: 15,
+
+  logo: {
+    width: 80,
+    height: 80,
   },
-  button: {
-    backgroundColor: "#22C55E",
-    padding: 15,
+
+  appName: {
+    marginTop: 10,
+    color: "#22c55e",
+    fontSize: 24,
+    fontWeight: "800",
+  },
+
+  card: {
+    backgroundColor: "#081426",
+    padding: 20,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#0f1724",
+  },
+
+  title: {
+    fontSize: 24,
+    color: "#E2E8F0",
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+
+  input: {
+    backgroundColor: "#071025",
+    borderWidth: 1,
+    borderColor: "#0f1724",
+    padding: 14,
     borderRadius: 10,
+    color: "#E2E8F0",
+    fontSize: 16,
+    marginBottom: 14,
+  },
+
+  button: {
+    backgroundColor: "#22c55e",
+    paddingVertical: 14,
+    borderRadius: 12,
     marginTop: 10,
   },
+
   buttonText: {
-    color: "#fff",
+    color: "#0F172A",
     fontSize: 18,
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: "800",
   },
+
   link: {
-    color: "#22C55E",
-    marginTop: 20,
+    color: "#22c55e",
+    marginTop: 18,
     textAlign: "center",
-    fontSize: 16,
-    textDecorationLine: "underline",
+    fontSize: 15,
+    fontWeight: "600",
   },
 });
