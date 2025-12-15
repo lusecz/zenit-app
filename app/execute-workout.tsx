@@ -3,23 +3,64 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
-    Alert,
-    Animated,
-    Image,
-    Linking,
-    Modal,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  Animated,
+  AppState,
+  Image,
+  Linking,
+  Modal,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 import { RoutineContext } from "@/context/RoutineContext";
 import { WorkoutHistoryContext } from "@/context/WorkoutHistoryContext";
 import { EXERCISE_LIBRARY } from "@/data/exercise-library";
+
+// Importações condicionais para notificações (não funciona no Expo Go)
+let Notifications: any = null;
+
+// Silenciar erros de notificação no Expo Go
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+console.error = (...args: any[]) => {
+  if (args[0]?.includes?.('expo-notifications')) return;
+  originalConsoleError(...args);
+};
+console.warn = (...args: any[]) => {
+  if (args[0]?.includes?.('expo-notifications')) return;
+  originalConsoleWarn(...args);
+};
+
+try {
+  Notifications = require('expo-notifications');
+  // Configurar comportamento das notificações apenas se disponível
+  if (Notifications) {
+    // Mostrar notificações sempre, incluindo quando o app está em foreground
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  }
+} catch (error) {
+  // Silenciar completamente qualquer erro de notificações
+  Notifications = null;
+} finally {
+  // Restaurar console após carregar notificações
+  console.error = originalConsoleError;
+  console.warn = originalConsoleWarn;
+}
 
 type ExerciseSetLocal = {
   id: string;
@@ -139,14 +180,170 @@ export default function ExecuteWorkoutScreen() {
   const totalTimerRef = useRef<number | null>(null);
   const tickRef = useRef<number | null>(null);
 
-  const [restModalVisible, setRestModalVisible] = useState(false);
+  const [restBarVisible, setRestBarVisible] = useState(false);
   const [restCountdown, setRestCountdown] = useState(0);
+  const restTimerRef = useRef<number | null>(null);
+  const restStartTimeRef = useRef<number | null>(null);
+  const restEndTimeRef = useRef<number | null>(null);
+  const shouldGoToNextExercise = useRef(false);
+  const notificationScheduledRef = useRef(false);
 
   const [transitioning, setTransitioning] = useState(false);
+
+  // Estados para edição de série durante execução
+  const [editingSetIndex, setEditingSetIndex] = useState<number | null>(null);
+  const [editWeight, setEditWeight] = useState("");
+  const [editReps, setEditReps] = useState("");
+
+  // Estado para editar tempo de descanso
+  const [editingRestTime, setEditingRestTime] = useState(false);
+  const [customRestTime, setCustomRestTime] = useState<number | null>(null);
+  const [activeNotifications, setActiveNotifications] = useState<Map<string, string>>(new Map());
 
   const progAnim = useAnimatedValue(0);
   const fadeAnim = useAnimatedValue(1);
   const translateY = useAnimatedValue(0);
+
+  // Iniciar timer total ao montar o componente
+  useEffect(() => {
+    setTotalRunning(true);
+  }, []);
+
+  // Configurar permissões e canal de notificação (apenas se disponível)
+  useEffect(() => {
+    if (!Notifications) return;
+    const configurateNotifications = async () => {
+      try {
+        if (Platform.OS === 'android') {
+          await Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+          });
+        }
+        await Notifications.requestPermissionsAsync();
+      } catch (error) {
+        console.log('Erro ao configurar notificações');
+      }
+    };
+    configurateNotifications();
+  }, []);
+
+  // Timer de descanso com lógica de background usando timestamp
+  useEffect(() => {
+    if (!restBarVisible || restCountdown <= 0) {
+      if (restTimerRef.current) {
+        clearInterval(restTimerRef.current);
+        restTimerRef.current = null;
+      }
+      restStartTimeRef.current = null;
+      restEndTimeRef.current = null;
+      return;
+    }
+
+    // Salvar timestamp de início e fim
+    const now = Date.now();
+    if (!restStartTimeRef.current) {
+      restStartTimeRef.current = now;
+      restEndTimeRef.current = now + (restCountdown * 1000);
+      notificationScheduledRef.current = false;
+    }
+
+    // Agendar notificação no início do descanso
+    if (Notifications && !notificationScheduledRef.current) {
+      notificationScheduledRef.current = true;
+      const exerciseName = exercises[exerciseIndex]?.name || 'exercício';
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🔔 Descanso Finalizado',
+          body: `Vamos para a próxima!`,
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: restCountdown,
+          repeats: false,
+        },
+      }).then((notificationId) => {
+        setActiveNotifications(prev => new Map(prev).set(exercises[exerciseIndex]?.id || '', notificationId));
+      }).catch(() => {});
+    }
+
+    // Iniciar timer de descanso baseado em timestamp real
+    restTimerRef.current = setInterval(() => {
+      const currentTime = Date.now();
+      const remaining = Math.ceil((restEndTimeRef.current! - currentTime) / 1000);
+      
+      if (remaining <= 0) {
+        // Limpar notificação do mapa (já foi disparada)
+        const currentExId = exercises[exerciseIndex]?.id;
+        if (currentExId) {
+          setActiveNotifications(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(currentExId);
+            return newMap;
+          });
+        }
+        
+        setRestBarVisible(false);
+        setRestCountdown(0);
+        restStartTimeRef.current = null;
+        restEndTimeRef.current = null;
+        notificationScheduledRef.current = false;
+        
+        // Ir para próximo exercício se necessário
+        if (shouldGoToNextExercise.current) {
+          shouldGoToNextExercise.current = false;
+          nextExerciseWithAnimation();
+        }
+      } else {
+        setRestCountdown(remaining);
+      }
+    }, 100) as unknown as number;
+
+    return () => {
+      if (restTimerRef.current) {
+        clearInterval(restTimerRef.current);
+        restTimerRef.current = null;
+      }
+    };
+  }, [restBarVisible]);
+
+  // Listener para quando o app volta do background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && restBarVisible && restEndTimeRef.current) {
+        // Recalcular tempo restante quando voltar do background
+        const currentTime = Date.now();
+        const remaining = Math.ceil((restEndTimeRef.current - currentTime) / 1000);
+        
+        if (remaining <= 0) {
+          // Limpar notificação do mapa (já foi disparada)
+          const currentExId = exercises[exerciseIndex]?.id;
+          if (currentExId) {
+            setActiveNotifications(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(currentExId);
+              return newMap;
+            });
+          }
+          
+          setRestBarVisible(false);
+          setRestCountdown(0);
+          restStartTimeRef.current = null;
+          restEndTimeRef.current = null;
+        } else {
+          setRestCountdown(remaining);
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [restBarVisible]);
 
   useEffect(() => {
     if (totalRunning) {
@@ -208,6 +405,43 @@ export default function ExecuteWorkoutScreen() {
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }, [totalSeconds]);
 
+  const cancelRestNotification = (exerciseId: string) => {
+    if (!Notifications) return;
+    const notificationId = activeNotifications.get(exerciseId);
+    if (notificationId) {
+      Notifications.cancelScheduledNotificationAsync(notificationId);
+      setActiveNotifications(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(exerciseId);
+        return newMap;
+      });
+    }
+  };
+
+  const scheduleRestNotification = async (seconds: number, exerciseName: string, exerciseId: string) => {
+    if (!Notifications || seconds <= 0) return;
+    
+    try {
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🔔 Descanso Finalizado!',
+          body: `Tempo de descanso de ${seconds}s terminou. Próxima série de ${exerciseName}!`,
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: seconds,
+          repeats: false,
+        },
+      });
+      
+      setActiveNotifications(prev => new Map(prev).set(exerciseId, notificationId));
+    } catch (error) {
+      // Silenciar erros de notificação
+    }
+  };
+
   const persistExerciseState = (next: ExerciseLocal[]) => {
     setExercises(next);
     try {
@@ -250,6 +484,37 @@ export default function ExecuteWorkoutScreen() {
     return `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.name)}`;
   };
 
+  const openEditSet = (setIndex: number) => {
+    const currentSet = exercises[exerciseIndex]?.sets[setIndex];
+    if (!currentSet) return;
+    
+    setEditingSetIndex(setIndex);
+    setEditWeight(String(currentSet.weight));
+    setEditReps(String(currentSet.reps));
+  };
+
+  const saveSetEdit = () => {
+    if (editingSetIndex === null) return;
+
+    const cloned = exercises.map((ex) => ({
+      ...ex,
+      sets: ex.sets.map((s) => ({ ...s })),
+    }));
+    const target = cloned[exerciseIndex];
+    if (!target) return;
+
+    const weight = parseFloat(editWeight) || 0;
+    const reps = parseInt(editReps) || 0;
+
+    target.sets[editingSetIndex].weight = weight;
+    target.sets[editingSetIndex].reps = reps;
+
+    persistExerciseState(cloned);
+    setEditingSetIndex(null);
+    setEditWeight("");
+    setEditReps("");
+  };
+
   const toggleSetComplete = (setIndex: number) => {
     const cloned = exercises.map((ex) => ({
       ...ex,
@@ -261,54 +526,106 @@ export default function ExecuteWorkoutScreen() {
     target.sets[setIndex].isCompleted = !target.sets[setIndex].isCompleted;
 
     if (target.sets[setIndex].isCompleted) {
-      if (!totalRunning) setTotalRunning(true);
       setRunning(true);
       setSeconds(0);
+
+      // Iniciar descanso entre séries
+      const rest = customRestTime ?? target.restTime ?? 60;
+      if (rest > 0) {
+        setRestCountdown(rest);
+        setRestBarVisible(true);
+        setRunning(false);
+      }
     }
 
     persistExerciseState(cloned);
 
     const allDone = target.sets.every((s) => s.isCompleted);
-    if (allDone) {
-      const rest = target.restTime ?? 60;
-      if (rest <= 0) {
+    if (allDone && target.sets[setIndex].isCompleted) {
+      // Ao finalizar a última série do exercício, mostrar descanso e depois ir para o próximo
+      const rest = customRestTime ?? target.restTime ?? 60;
+      if (rest > 0) {
+        setRestCountdown(rest);
+        setRestBarVisible(true);
+        setRunning(false);
+        shouldGoToNextExercise.current = true;
+      } else {
         nextExerciseWithAnimation();
-        return;
       }
-      setRestCountdown(rest);
-      setRestModalVisible(true);
-      setRunning(false);
     }
   };
-
-  useEffect(() => {
-    if (!restModalVisible) return;
-    if (restCountdown <= 0) {
-      setRestModalVisible(false);
-      nextExerciseWithAnimation();
-      return;
-    }
-    const id = setInterval(() => {
-      setRestCountdown((c) => (c <= 1 ? 0 : c - 1));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [restModalVisible, restCountdown]);
 
   const nextExerciseWithAnimation = () => {
     const next = exerciseIndex + 1;
     if (next >= exercises.length) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: 12, duration: 200, useNativeDriver: true }),
-      ]).start(() => {
-        try {
-          finishWorkoutSession();
-        } catch {}
-        router.replace("/result");
-      });
+      // Mostrar confirmação antes de finalizar
+      Alert.alert(
+        "Finalizar Treino",
+        "Deseja finalizar o treino e ver os resultados?",
+        [
+          {
+            text: "Cancelar",
+            style: "cancel"
+          },
+          {
+            text: "Finalizar",
+            style: "default",
+            onPress: () => {
+              Animated.parallel([
+                Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+                Animated.timing(translateY, { toValue: 12, duration: 200, useNativeDriver: true }),
+              ]).start(() => {
+                try {
+                  // Calcular estatísticas antes de finalizar
+                  const totalExercises = exercises.length;
+                  const totalSets = exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+                  const completedSets = exercises.reduce(
+                    (sum, ex) => sum + ex.sets.filter((s) => s.isCompleted).length,
+                    0
+                  );
+                  
+                  // Calcular volume total (peso x reps das séries completadas)
+                  const totalVolume = exercises.reduce((sum, ex) => {
+                    return sum + ex.sets.reduce((setSum, set) => {
+                      if (set.isCompleted) {
+                        return setSum + ((set.weight ?? 0) * (set.reps ?? 0));
+                      }
+                      return setSum;
+                    }, 0);
+                  }, 0);
+                  
+                  // Usar o tempo total do contador (totalSeconds)
+                  const minutes = Math.floor(totalSeconds / 60);
+                  const seconds = totalSeconds % 60;
+                  const timeFormatted = `${minutes}min ${seconds}s`;
+
+                  const resultData = {
+                    routineName: routine?.name || "Treino",
+                    totalTime: timeFormatted,
+                    totalExercises: totalExercises,
+                    totalSets: completedSets,
+                    totalVolume: `${totalVolume} kg`,
+                  };
+
+                  finishWorkoutSession();
+
+                  router.replace({
+                    pathname: "/result",
+                    params: { data: JSON.stringify(resultData) }
+                  });
+                } catch (error) {
+                  console.error("Erro ao finalizar treino:", error);
+                  router.replace("/result");
+                }
+              });
+            }
+          }
+        ]
+      );
       return;
     }
     setTransitioning(true);
+    
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
       Animated.timing(translateY, { toValue: 12, duration: 180, useNativeDriver: true }),
@@ -339,11 +656,6 @@ export default function ExecuteWorkoutScreen() {
         Animated.timing(translateY, { toValue: 0, duration: 240, useNativeDriver: true }),
       ]).start(() => setTransitioning(false));
     });
-  };
-
-  const toggleRunning = () => {
-    if (!totalRunning) setTotalRunning(true);
-    setRunning((r) => !r);
   };
 
   const estimatedTotalTime = useMemo(() => {
@@ -382,12 +694,23 @@ export default function ExecuteWorkoutScreen() {
     }
   })();
 
+  const handleBackPress = () => {
+    Alert.alert(
+      "Sair do treino?",
+      "Você tem certeza que deseja sair?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sair", style: "destructive", onPress: () => router.push("/routines") },
+      ]
+    );
+  };
+
   return (
     <AppLayout style={styles.container}>
       <StatusBar barStyle="light-content" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push("/routines")}>
+        <TouchableOpacity onPress={handleBackPress}>
           <Ionicons name="arrow-back-circle" size={26} color="#94a3b8" />
         </TouchableOpacity>
 
@@ -402,22 +725,17 @@ export default function ExecuteWorkoutScreen() {
       </View>
 
       <View style={styles.topArea}>
-        <View style={styles.dotsRow}>
-          {exercises.map((_, i) => (
+        <View style={styles.exercisesProgressContainer}>
+          {exercises.map((ex, i) => (
             <View
-              key={i}
-              style={[styles.dot, i === exerciseIndex ? styles.dotActive : styles.dotInactive]}
+              key={ex.id}
+              style={[
+                styles.exerciseProgressBar,
+                i < exerciseIndex && styles.exerciseProgressBarCompleted,
+                i === exerciseIndex && styles.exerciseProgressBarCurrent
+              ]}
             />
           ))}
-        </View>
-
-        <View style={styles.progressBarBackground}>
-          <Animated.View
-            style={[
-              styles.progressBarFill,
-              { width: progAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }) },
-            ]}
-          />
         </View>
       </View>
 
@@ -453,29 +771,39 @@ export default function ExecuteWorkoutScreen() {
               </View>
             )}
 
-            <View style={styles.timerRow}>
-              <View>
-                <Text style={styles.timerLabel}>Cronômetro</Text>
-                <Text style={styles.timerValue}>{formattedTime}</Text>
-              </View>
-
-              <View style={{ alignItems: "center" }}>
-                <Text style={styles.estimatedLabel}>Estimativa</Text>
-                <Text style={styles.estimatedValue}>
-                  {Math.ceil(estimatedTotalTime / 60)} min
-                </Text>
-              </View>
-            </View>
-
             <View style={styles.controlsRow}>
               <TouchableOpacity style={styles.sideBtn} onPress={prevExercise}>
                 <Ionicons name="chevron-back-circle-outline" size={40} color="#94a3b8" />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.startBtn} onPress={toggleRunning}>
-                <Ionicons name={running ? "pause" : "play"} size={22} color="#0F172A" />
-                <Text style={styles.startTxt}>{running ? "Pausar" : "Start"}</Text>
-              </TouchableOpacity>
+              <View style={styles.centerControls}>
+                {/* Barra de progresso das séries */}
+                <View style={styles.setsProgressContainer}>
+                  {currentExercise?.sets?.map((set, idx) => (
+                    <View
+                      key={set.id}
+                      style={[
+                        styles.setProgressBar,
+                        set.isCompleted && styles.setProgressBarCompleted
+                      ]}
+                    />
+                  ))}
+                </View>
+
+                {/* Área de descanso centralizada */}
+                <View style={styles.restTimeContainer}>
+                  <Text style={styles.restTimeLabel}>Descanso</Text>
+                  <TouchableOpacity
+                    onPress={() => setEditingRestTime(true)}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+                  >
+                    <Text style={styles.restTimeValue}>
+                      {String(Math.floor((customRestTime ?? currentExercise?.restTime ?? 60) / 60)).padStart(2, '0')}:{String((customRestTime ?? currentExercise?.restTime ?? 60) % 60).padStart(2, '0')}
+                    </Text>
+                    <Ionicons name="pencil" size={14} color="#94a3b8" />
+                  </TouchableOpacity>
+                </View>
+              </View>
 
               <TouchableOpacity style={styles.sideBtn} onPress={nextExerciseWithAnimation}>
                 <Ionicons name="chevron-forward-circle-outline" size={40} color="#94a3b8" />
@@ -484,62 +812,255 @@ export default function ExecuteWorkoutScreen() {
 
             <View style={{ marginTop: 14 }}>
               {currentExercise?.sets?.map((set, idx) => (
-                <TouchableOpacity
-                  key={set.id}
-                  style={[styles.setRow, set.isCompleted && styles.setRowDone]}
-                  onPress={() => toggleSetComplete(idx)}
-                >
-                  <View>
-                    <Text style={styles.setTitle}>Série {idx + 1}</Text>
-                    <Text style={styles.setSub}>
-                      {set.reps ?? 0} reps • {set.weight ?? 0} kg
-                    </Text>
-                  </View>
+                <View key={set.id} style={[styles.setRow, set.isCompleted && styles.setRowDone]}>
+                  <TouchableOpacity 
+                    style={{ flex: 1 }}
+                    onPress={() => toggleSetComplete(idx)}
+                    activeOpacity={0.7}
+                  >
+                    <View>
+                      <Text style={styles.setTitle}>Série {idx + 1}</Text>
+                      <Text style={styles.setSub}>
+                        {set.reps ?? 0} reps • {set.weight ?? 0} kg
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
 
-                  {set.isCompleted ? (
-                    <Ionicons name="checkmark-circle" size={28} color="#22c55e" />
-                  ) : (
-                    <Ionicons name="ellipse-outline" size={26} color="#64748b" />
-                  )}
-                </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TouchableOpacity 
+                      onPress={() => openEditSet(idx)}
+                      style={styles.editSetBtn}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="create-outline" size={20} color="#64748b" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      onPress={() => toggleSetComplete(idx)}
+                      activeOpacity={0.7}
+                    >
+                      {set.isCompleted ? (
+                        <Ionicons name="checkmark-circle" size={28} color="#22c55e" />
+                      ) : (
+                        <Ionicons name="ellipse-outline" size={26} color="#64748b" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
               ))}
             </View>
           </View>
+
+          {/* Barra de Descanso dentro do ScrollView */}
+          {restBarVisible && (
+            <View style={styles.restBar}>
+              <View style={styles.restBarContent}>
+                <TouchableOpacity
+                  style={styles.restBarButton}
+                  onPress={async () => {
+                    const newTime = Math.max(0, restCountdown - 15);
+                    const currentExId = exercises[exerciseIndex]?.id;
+                    const exerciseName = exercises[exerciseIndex]?.name || 'exercício';
+                    
+                    // Cancelar notificação agendada
+                    if (currentExId) cancelRestNotification(currentExId);
+                    
+                    // Atualizar timestamps
+                    const now = Date.now();
+                    restStartTimeRef.current = now;
+                    restEndTimeRef.current = now + (newTime * 1000);
+                    setRestCountdown(newTime);
+                    
+                    // Reagendar notificação com novo tempo
+                    if (currentExId && newTime > 0) {
+                      await scheduleRestNotification(newTime, exerciseName, currentExId);
+                    }
+                    
+                    notificationScheduledRef.current = true;
+                  }}
+                >
+                  <Ionicons name="remove-circle" size={24} color="#ef4444" />
+                  <Text style={styles.restBarButtonText}>-15s</Text>
+                </TouchableOpacity>
+
+                <View style={styles.restBarTimerContainer}>
+                  <Ionicons name="time-outline" size={20} color="#22c55e" />
+                  <Text style={styles.restBarTimer}>{restCountdown}s</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.restBarButton}
+                  onPress={async () => {
+                    const newTime = restCountdown + 15;
+                    const currentExId = exercises[exerciseIndex]?.id;
+                    const exerciseName = exercises[exerciseIndex]?.name || 'exercício';
+                    
+                    // Cancelar notificação agendada
+                    if (currentExId) cancelRestNotification(currentExId);
+                    
+                    // Atualizar timestamps
+                    const now = Date.now();
+                    restStartTimeRef.current = now;
+                    restEndTimeRef.current = now + (newTime * 1000);
+                    setRestCountdown(newTime);
+                    
+                    // Reagendar notificação com novo tempo
+                    if (currentExId) {
+                      await scheduleRestNotification(newTime, exerciseName, currentExId);
+                    }
+                    
+                    notificationScheduledRef.current = true;
+                  }}
+                >
+                  <Ionicons name="add-circle" size={24} color="#22c55e" />
+                  <Text style={styles.restBarButtonText}>+15s</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.restBarSkipButton}
+                onPress={() => {
+                  // Cancelar notificação agendada
+                  const currentExId = exercises[exerciseIndex]?.id;
+                  if (currentExId) cancelRestNotification(currentExId);
+                  
+                  setRestBarVisible(false);
+                  setRestCountdown(0);
+                  restStartTimeRef.current = null;
+                  restEndTimeRef.current = null;
+                  notificationScheduledRef.current = false;
+                  
+                  if (shouldGoToNextExercise.current) {
+                    shouldGoToNextExercise.current = false;
+                    nextExerciseWithAnimation();
+                  }
+                }}
+              >
+                <Text style={styles.restBarSkipText}>PULAR DESCANSO</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </Animated.View>
       </ScrollView>
 
-      <Modal visible={restModalVisible} transparent animationType="fade">
+      {/* Modal de Edição de Série */}
+      <Modal visible={editingSetIndex !== null} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Descanso</Text>
-            <Text style={styles.modalSub}>Próximo exercício em {restCountdown}s</Text>
+            <Text style={styles.modalTitle}>Editar Série {editingSetIndex !== null ? editingSetIndex + 1 : ""}</Text>
+            
+            <View style={styles.editInputContainer}>
+              <View style={styles.editInputGroup}>
+                <Text style={styles.editLabel}>Repetições</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editReps}
+                  onChangeText={setEditReps}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor="#64748b"
+                />
+              </View>
 
-            <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+              <View style={styles.editInputGroup}>
+                <Text style={styles.editLabel}>Peso (kg)</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editWeight}
+                  onChangeText={setEditWeight}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor="#64748b"
+                />
+              </View>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 20 }}>
               <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => {
-                  setRestModalVisible(false);
-                  nextExerciseWithAnimation();
-                }}
+                style={[styles.modalButton, { flex: 1 }]}
+                onPress={saveSetEdit}
               >
-                <Text style={{ color: "#fff" }}>Pular</Text>
+                <Text style={{ color: "#fff", fontWeight: "600" }}>Salvar</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.modalButton,
-                  { backgroundColor: "#0B1220", borderWidth: 1, borderColor: "#17212a" },
+                  { flex: 1, backgroundColor: "#0B1220", borderWidth: 1, borderColor: "#17212a" },
                 ]}
                 onPress={() => {
-                  setRestModalVisible(false);
-                  setRunning(false);
+                  setEditingSetIndex(null);
+                  setEditWeight("");
+                  setEditReps("");
                 }}
               >
-                <Text style={{ color: "#22c55e" }}>Cancelar</Text>
+                <Text style={{ color: "#94a3b8", fontWeight: "600" }}>Cancelar</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Modal de Edição de Tempo de Descanso */}
+      <Modal visible={editingRestTime} transparent animationType="slide">
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1}
+          onPress={() => {
+            setEditingRestTime(false);
+            setCustomRestTime(null);
+          }}
+        >
+          <TouchableOpacity 
+            activeOpacity={1} 
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={[styles.modalBox, { minHeight: 220 }]}>
+              <Text style={styles.modalTitle}>Tempo de Descanso</Text>
+              <Text style={styles.modalSub}>Digite o tempo em segundos</Text>
+
+              <TextInput
+                style={[styles.editInput, { fontSize: 32, marginTop: 24, marginBottom: 24 }]}
+                value={
+                  customRestTime !== null
+                    ? String(customRestTime)
+                    : String(currentExercise?.restTime ?? 60)
+                }
+                onChangeText={(text) => {
+                  const num = parseInt(text) || 0;
+                  setCustomRestTime(num);
+                }}
+                keyboardType="numeric"
+                placeholder="60"
+                placeholderTextColor="#64748b"
+                autoFocus
+                selectTextOnFocus
+              />
+
+              <View style={{ flexDirection: "row", gap: 12, width: "100%" }}>
+                <TouchableOpacity
+                  style={[styles.modalButton, { flex: 1 }]}
+                  onPress={() => setEditingRestTime(false)}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "600" }}>Salvar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.modalButton,
+                    { flex: 1, backgroundColor: "#0B1220", borderWidth: 1, borderColor: "#17212a" },
+                  ]}
+                  onPress={() => {
+                    setEditingRestTime(false);
+                    setCustomRestTime(null);
+                  }}
+                >
+                  <Text style={{ color: "#94a3b8", fontWeight: "600" }}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {transitioning && <View style={styles.transitionOverlay} pointerEvents="none" />}
@@ -563,22 +1084,34 @@ const styles = StyleSheet.create({
 
   title: { color: "#22c55e", fontWeight: "700", fontSize: 16 },
 
-  topArea: { padding: 12 },
+  topArea: { 
+    padding: 12,
+    paddingBottom: 8,
+  },
 
-  dotsRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
-  dot: { width: 10, height: 10, borderRadius: 10 },
-  dotActive: { backgroundColor: "#22c55e" },
-  dotInactive: { backgroundColor: "transparent", borderWidth: 1, borderColor: "#17323a" },
+  exercisesProgressContainer: {
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+  },
 
-  progressBarBackground: {
+  exerciseProgressBar: {
+    flex: 1,
     height: 6,
     backgroundColor: "#071025",
-    borderRadius: 6,
-    overflow: "hidden",
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: "#17323a",
   },
-  progressBarFill: {
-    height: 6,
+
+  exerciseProgressBarCompleted: {
     backgroundColor: "#22c55e",
+    borderColor: "#22c55e",
+  },
+
+  exerciseProgressBarCurrent: {
+    backgroundColor: "#0ea5e9",
+    borderColor: "#0ea5e9",
   },
 
   card: {
@@ -629,7 +1162,7 @@ const styles = StyleSheet.create({
 
   timerRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
   timerLabel: { color: "#94a3b8" },
-  timerValue: { color: "#22c55e", fontSize: 28, fontWeight: "800" },
+  timerValue: { color: "#22c55e", fontSize: 20, fontWeight: "700" },
 
   timerSmallLabel: { color: "#94a3b8", fontSize: 12 },
   timerTotal: { color: "#E2E8F0", fontWeight: "700" },
@@ -637,20 +1170,56 @@ const styles = StyleSheet.create({
   estimatedLabel: { color: "#94a3b8", fontSize: 12 },
   estimatedValue: { color: "#E2E8F0", fontWeight: "700" },
 
-  controlsRow: { flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 12 },
+  restTimeValue: { color: "#22c55e", fontSize: 20, fontWeight: "700" },
 
-  startBtn: {
-    backgroundColor: "#22c55e",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-    flexDirection: "row",
-    gap: 10,
+  restTimeContainer: {
     alignItems: "center",
   },
-  startTxt: { color: "#0F172A", fontWeight: "700" },
 
-  sideBtn: { justifyContent: "center", alignItems: "center" },
+  restTimeLabel: {
+    color: "#94a3b8",
+    fontSize: 12,
+    marginBottom: 4,
+  },
+
+  controlsRow: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    marginTop: 12 
+  },
+
+  sideBtn: { 
+    justifyContent: "center", 
+    alignItems: "center" 
+  },
+
+  centerControls: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+
+  setsProgressContainer: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 12,
+  },
+
+  setProgressBar: {
+    width: 30,
+    height: 6,
+    backgroundColor: "#071025",
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: "#17323a",
+  },
+
+  setProgressBarCompleted: {
+    backgroundColor: "#22c55e",
+    borderColor: "#22c55e",
+  },
 
   setRow: {
     flexDirection: "row",
@@ -685,8 +1254,116 @@ const styles = StyleSheet.create({
 
   modalButton: { backgroundColor: "#22c55e", padding: 12, borderRadius: 8 },
 
+  editSetBtn: {
+    padding: 8,
+    backgroundColor: "#0B1220",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#17212a",
+  },
+
+  editInputContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 16,
+    width: "100%",
+  },
+
+  editInputGroup: {
+    flex: 1,
+  },
+
+  editLabel: {
+    color: "#94a3b8",
+    fontSize: 12,
+    marginBottom: 6,
+    fontWeight: "600",
+  },
+
+  editInput: {
+    backgroundColor: "#071026",
+    borderWidth: 1,
+    borderColor: "#17212a",
+    borderRadius: 8,
+    padding: 12,
+    color: "#E2E8F0",
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
   transitionOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.25)",
+  },
+
+  // Estilos da barra de descanso inline
+  restBar: {
+    backgroundColor: "#071025",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 2,
+    borderColor: "#22c55e",
+  },
+
+  restBarContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 12,
+  },
+
+  restBarButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#0B1220",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#17212a",
+  },
+
+  restBarButtonText: {
+    color: "#E2E8F0",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  restBarTimerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#0B1220",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#17212a",
+    flex: 1,
+    justifyContent: "center",
+  },
+
+  restBarTimer: {
+    color: "#22c55e",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  restBarSkipButton: {
+    backgroundColor: "#22c55e",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+
+  restBarSkipText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
