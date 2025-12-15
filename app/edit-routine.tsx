@@ -89,7 +89,7 @@ export default function EditRoutineScreen() {
   const applyEditExercise = () => {
     if (!editingExercise) return;
     if (!isValidName(newExerciseName)) {
-      showToast("Nome inválido");
+      showToast("Invalid Name");
       return;
     }
     const res = updateExercise(
